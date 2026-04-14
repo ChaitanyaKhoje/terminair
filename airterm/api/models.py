@@ -195,6 +195,16 @@ class DAGDetails(BaseModel):
     tasks: list[DAGDetailsTask] = []
 
 
+class DAGTask(BaseModel):
+    task_id: str
+    downstream_task_ids: list[str] = Field(default_factory=list)
+
+
+class DAGTaskList(BaseModel):
+    tasks: list[DAGTask] = []
+    total_entries: int = 0
+
+
 class Dataset(BaseModel):
     id: str
     uri: str

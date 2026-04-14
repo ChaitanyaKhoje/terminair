@@ -102,6 +102,13 @@ class AirflowClient:
         resp.raise_for_status()
         return models.DAGDetails(**resp.json())
 
+    async def get_dag_tasks(self, dag_id: str) -> models.DAGTaskList:
+        resp = await self._client.get(f"/api/v1/dags/{dag_id}/tasks")
+        resp.raise_for_status()
+        data = resp.json()
+        tasks = [models.DAGTask(**t) for t in data.get("tasks", [])]
+        return models.DAGTaskList(tasks=tasks, total_entries=data.get("total_entries", len(tasks)))
+
     async def get_pools(self) -> models.PoolList:
         resp = await self._client.get("/api/v1/pools")
         resp.raise_for_status()

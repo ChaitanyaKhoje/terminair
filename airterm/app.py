@@ -272,12 +272,12 @@ class AirTermApp(App):
             client = self._client
             if not client:
                 return
-            detail = await client.get_dag_details(dag_id)
-            tasks = [{"id": t.task_id} for t in detail.tasks]
+            task_list = await client.get_dag_tasks(dag_id)
+            tasks = [{"id": t.task_id} for t in task_list.tasks]
             edges = []
-            for task in detail.tasks:
-                for upstream in task.upstream_task_ids:
-                    edges.append((upstream, task.task_id))
+            for task in task_list.tasks:
+                for downstream in task.downstream_task_ids:
+                    edges.append((task.task_id, downstream))
             self.screen.render_graph(tasks, edges)
         except Exception:
             pass
