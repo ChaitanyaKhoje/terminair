@@ -269,7 +269,9 @@ class AirTermApp(App):
                 dag = dags[table.cursor_row]
                 self._nav_stack.append(("dags", dag.dag_id))
                 self.push_screen("dag_detail")
-                self._load_dag_detail(dag.dag_id)
+                from textual.app import asyncio
+
+                asyncio.create_task(self._load_dag_detail(dag.dag_id))
 
     async def _load_dag_detail(self, dag_id: str):
         try:
