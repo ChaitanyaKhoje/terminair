@@ -76,6 +76,8 @@ class AirTermApp(App):
             self._show_error("No connection configured. Run with --url or configure in config.")
             return
 
+        self._check_environment_badging(conn.url)
+
         self._client = AirflowClient(conn)
         self._poller = Poller(self._client)
 
@@ -114,24 +116,137 @@ class AirTermApp(App):
         )
 
     def action_switch_dags(self):
-        # Pop back to dags screen if we're deeper
         while len(self.screen_stack) > 2:
             self.pop_screen()
 
     def action_switch_recent(self):
         self.push_screen("recent_activity")
+        self._load_recent_activity()
 
     def action_switch_pools(self):
         self.push_screen("pools")
+        self._load_pools()
 
     def action_switch_health(self):
         self.push_screen("health")
+        self._load_health()
 
     def action_switch_errors(self):
         self.push_screen("import_errors")
+        self._load_import_errors()
 
-    def action_switch_events(self):
-        self.push_screen("event_log")
+    def action_view_graph(self):
+        self.push_screen("dag_graph")
+        self._load_dag_graph()
+
+    def action_view_task_history(self):
+        self.push_screen("task_history")
+
+    async def _load_recent_activity(self):
+        try:
+            client = self._client
+            if not client:
+                return
+            runs_result = await client.get_all_dag_runs(limit=50)
+            screen = self.screen.query_one("#activity-table")
+            empty = self.screen.query_one("#activity-empty")
+            if not runs_result.dag_runs:
+                empty.display = True
+                screen.display = False
+                return
+            screen.display = True
+            empty.display = False
+            table = self.screen.query_one("#activity-table")
+            table.clear()
+            for run in runs_result.dag_runs:
+                duration = ""
+                if run.start_date and run.end_date:
+                    delta = run.end_date - run.start_date
+                    duration = f"{int(delta.total_seconds())}s"
+                table.add_row(
+                    str(run.end_date)[:19] if run.end_date else "",
+                    run.dag_id,
+                    run.dag_run_id[:30],
+                    run.state.value if run.state else "",
+                    duration,
+                    "",
+                )
+        except Exception:
+            pass
+
+    async def _load_pools(self):
+        try:
+            client = self._client
+            if not client:
+                return
+            pools_result = await client.get_pools()
+            screen = self.screen.query_one("#pools-table")
+            table = self.screen.query_one("#pools-table")
+            table.clear()
+            for pool in pools_result.pools:
+                util = 0
+if pool.slots > 0:
+                util = (pool.used_slots / pool.slots) * 100
+                bar = "█" * int(util / 10) + "░" * (10 - int(util / 10))
+            else:
+                bar = ""
+            table.add_row(
+                    pool.name,
+                    str(pool.used_slots),
+                    str(pool.queued_slots),
+                    str(pool.slots),
+                    f"{util:.0f}% {bar}",
+                    str(pool.running_slots),
+                )
+        except Exception:
+            pass
+
+    async def _load_health(self):
+        try:
+            client = self._client
+            if not client:
+                return
+            health_result = await client.get_health()
+            screen = self.screen.query_one("#health-content")
+            if hasattr(screen, "update"):
+                screen.update(health_result)
+        except Exception:
+            pass
+
+    async def _load_import_errors(self):
+        try:
+            client = self._client
+            if not client:
+                return
+            errors_result = await client.get_import_errors()
+            table = self.screen.query_one("#import-errors-table")
+            table.clear()
+            for error in errors_result.import_errors:
+                table.add_row(
+                    error.filename,
+                    error.stack_trace[:50] if error.stack_trace else "",
+                    str(error.timestamp)[:19] if error.timestamp else "",
+                )
+        except Exception:
+            pass
+
+    async def _load_event_logs(self):
+        try:
+            client = self._client
+            if not client:
+                return
+            logs_result = await client.get_event_logs(limit=50)
+            table = self.screen.query_one("#event-log-table")
+            table.clear()
+            for log in logs_result.event_logs:
+                table.add_row(
+                    str(log.when)[:19] if log.when else "",
+                    log.dag_id or "",
+                    log.event if log.event else "",
+                    log.owner if log.owner else "",
+                )
+        except Exception:
+            pass
 
     def action_view_task_history(self):
         self.push_screen("task_history")
@@ -158,6 +273,7 @@ class AirTermApp(App):
     def action_focus_filter(self):
         try:
             from airterm.widgets.filter_input import FilterInput
+
             filter_bar = self.screen.query_one(FilterInput)
             filter_bar.open()
         except Exception:
@@ -231,6 +347,15 @@ Press q to quit and try:
         error_screen.styles.height = "100%"
         error_screen.styles.width = "100%"
         self.mount(error_screen)
+
+    def _check_environment_badging(self, url: str) -> None:
+        if "prod" in url.lower():
+            self.styles.border = ("double", "#ff5555")
+            try:
+                header = self.query_one("#header-bar")
+                title = header.update_title("PROD")
+            except Exception:
+                pass
 
     def get_client(self) -> Optional[AirflowClient]:
         return self._client

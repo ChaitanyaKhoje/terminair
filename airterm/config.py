@@ -35,6 +35,11 @@ class Settings(BaseModel):
     confirm_actions: bool = True
     timestamp_format: str = "relative"
 
+    @classmethod
+    def from_env(cls) -> "Settings":
+        api_token = os.environ.get("AIRFLOW_API_TOKEN")
+        return cls(api_token=api_token)
+
 
 class Config(BaseModel):
     connections: dict[str, Connection] = {}

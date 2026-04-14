@@ -1,10 +1,11 @@
 """Filter bar widget - inline bottom bar for filtering tables."""
 
+from difflib import SequenceMatcher
+
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.widget import Widget
-from textual.widgets import Input, Label
-from textual.containers import Horizontal
+from textual.widgets import DataTable, Input, Label
 
 
 class FilterInput(Widget):
@@ -77,6 +78,25 @@ class FilterInput(Widget):
             return self.query_one("#filter-field", Input).value
         except Exception:
             return ""
+
+    def filter_table(self, table: DataTable, query: str) -> list:
+        if not query:
+            return []
+
+        query_lower = query.lower()
+        rows = list(table.rows)
+        matches = []
+
+        for row_key, row_data in rows:
+            row_text = " ".join(str(v).lower() for v in row_data)
+            if query_lower in row_text:
+                matches.append(row_key)
+            else:
+                ratio = SequenceMatcher(None, query_lower, row_text).ratio()
+                if ratio > 0.4:
+                    matches.append(row_key)
+
+        return matches
 
     def action_cancel_filter(self):
         """Esc: clear filter and close."""
