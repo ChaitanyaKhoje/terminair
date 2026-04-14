@@ -256,25 +256,39 @@ class AirTermApp(App):
         self._load_dag_graph()
 
     async def _load_dag_graph(self):
+        import sys
+
+        print(f"DEBUG: _load_dag_graph called", file=sys.stderr, flush=True)
         try:
             dags = getattr(self, "_cached_dags", [])
+            print(f"DEBUG: dags count = {len(dags)}", file=sys.stderr, flush=True)
             if not dags:
                 return
             table = self.screen.query_one("#dags-table", None)
+            print(f"DEBUG: table = {table}", file=sys.stderr, flush=True)
             if not table or table.cursor_row is None:
+                print(f"DEBUG: no cursor_row", file=sys.stderr, flush=True)
                 return
             dag = dags[table.cursor_row]
             dag_id = dag.dag_id
+            print(f"DEBUG: dag_id = {dag_id}", file=sys.stderr, flush=True)
             client = self._client
+            print(f"DEBUG: client = {client}", file=sys.stderr, flush=True)
             detail = await client.get_dag_details(dag_id)
+            print(f"DEBUG: tasks count = {len(detail.tasks)}", file=sys.stderr, flush=True)
             tasks = [{"id": t.task_id} for t in detail.tasks]
             edges = []
             for task in detail.tasks:
                 for upstream in task.upstream_task_ids:
                     edges.append((upstream, task.task_id))
+            print(f"DEBUG: edges count = {len(edges)}", file=sys.stderr, flush=True)
             self.screen.render_graph(tasks, edges)
-        except Exception:
-            pass
+            print(f"DEBUG: render_graph called", file=sys.stderr, flush=True)
+        except Exception as e:
+            print(f"DEBUG: exception = {e}", file=sys.stderr, flush=True)
+            import traceback
+
+            traceback.print_exc(file=sys.stderr)
 
     def action_view_dag_detail(self, dag_id: str = ""):
         self._nav_stack.append(("dags", dag_id))
