@@ -110,36 +110,47 @@ class DagDetailScreen(Screen):
             "Type",
             "Execution",
             "Duration",
-            "vs Avg",
+            "Drift",
             "Error",
         )
 
     def update_runs(self, runs: list, avg_duration: float = 0.0):
         table = self.query_one("#run-table")
         table.clear()
+        state_colors = {
+            "success": "green",
+            "failed": "red",
+            "running": "yellow",
+            "queued": "cyan",
+        }
         for run in runs:
             duration = ""
-            vs_avg = ""
+            drift = ""
             if run.start_date and run.end_date:
                 delta = run.end_date - run.start_date
                 seconds = delta.total_seconds()
                 duration = f"{int(seconds // 60)}m {int(seconds % 60)}s"
                 if avg_duration > 0:
-                    drift = ((seconds - avg_duration) / avg_duration) * 100
-                    sign = "+" if drift > 0 else ""
-                    vs_avg = f"{sign}{drift:.0f}%"
+                    pct = ((seconds - avg_duration) / avg_duration) * 100
+                    sign = "+" if pct > 0 else ""
+                    drift_color = "red" if pct > 20 else ("yellow" if pct > 0 else "green")
+                    drift = f"[{drift_color}]{sign}{pct:.0f}%[/{drift_color}]"
+
+            state_val = run.state.value if run.state else ""
+            state_color = state_colors.get(state_val, "white")
+            colored_state = f"[{state_color}]{state_val}[/{state_color}]"
 
             error = ""
-            if run.state.value == "failed":
-                error = run.dag_run_id[:30]
+            if state_val == "failed":
+                error = f"[red]{run.dag_run_id[:30]}[/red]"
 
             table.add_row(
                 run.dag_run_id[:30],
-                run.state.value if run.state else "",
-                run.run_type,
+                colored_state,
+                f"[dim]{run.run_type}[/dim]",
                 str(run.execution_date)[:16],
                 duration,
-                vs_avg,
+                drift,
                 error,
             )
 
@@ -171,16 +182,24 @@ class DagDetailScreen(Screen):
 
         heatmap_section = f"\nFailure Heatmap (darker = more failures):\n{heatmap}" if heatmap else ""
 
+        sr_color = "green" if success_rate >= 90 else ("yellow" if success_rate >= 70 else "red")
+        streak_color = "green" if streak_type == "success" else ("red" if streak_type == "failure" else "white")
+        failure_color = "red" if failure_count > 0 else "green"
+        last_failure_str = f"[red]{last_failure}[/red]" if last_failure else "[green]none[/green]"
+
         self.query_one("#metrics-panel").update(
-            f"""DAG: {dag_id} | Schedule: {schedule} | Owner: {owner}
-─────────────────────────────────────────────
-Runs (last 50): {total_runs} total | {success_count} success | {failure_count} failed
-Success Rate:   {success_rate:.1f}%
-Avg Duration:   {int(avg_duration // 60)}m {int(avg_duration % 60)}s
-P95 Duration:   {int(p95_duration // 60)}m {int(p95_duration % 60)}s
-Last Failure:   {last_failure or "none"}
-Streak:         {streak_count} ({streak_type})
-Trend:          {sparkline}
-Distribution:   {box}{heatmap_section}
-"""
+            f"[bold cyan]{dag_id}[/bold cyan]  "
+            f"[dim]schedule:[/dim] [yellow]{schedule}[/yellow]  "
+            f"[dim]owner:[/dim] [white]{owner}[/white]\n"
+            f"─────────────────────────────────────────────\n"
+            f"[dim]Runs (last 50):[/dim] {total_runs} total  "
+            f"[green]{success_count} success[/green]  "
+            f"[{failure_color}]{failure_count} failed[/{failure_color}]\n"
+            f"[dim]Success Rate:[/dim]   [{sr_color}]{success_rate:.1f}%[/{sr_color}]\n"
+            f"[dim]Avg Duration:[/dim]   [white]{int(avg_duration // 60)}m {int(avg_duration % 60)}s[/white]\n"
+            f"[dim]P95 Duration:[/dim]   [yellow]{int(p95_duration // 60)}m {int(p95_duration % 60)}s[/yellow]\n"
+            f"[dim]Last Failure:[/dim]   {last_failure_str}\n"
+            f"[dim]Streak:[/dim]         [{streak_color}]{streak_count} {streak_type}[/{streak_color}]\n"
+            f"[dim]Trend:[/dim]          [cyan]{sparkline}[/cyan]\n"
+            f"[dim]Distribution:[/dim]   {box}{heatmap_section}\n"
         )

@@ -8,17 +8,15 @@ from textual.widgets import DataTable, Static
 class PoolsScreen(Screen):
     CSS = """
     PoolsScreen {
-        layout: grid;
-        grid-size: 1 2;
-        grid-rows: 1fr 5;
+        layout: vertical;
     }
 
     #pools-table {
-        height: 100%;
+        height: 1fr;
     }
 
     #pools-alert {
-        height: 100%;
+        height: 3;
         background: $panel;
         padding: 0 2;
     }
@@ -26,9 +24,6 @@ class PoolsScreen(Screen):
 
     def compose(self) -> ComposeResult:
         yield DataTable(id="pools-table")
-        e = Static("No pools found", id="pools-empty")
-        e.display = False
-        yield e
         yield Static("", id="pools-alert")
 
     def on_mount(self) -> None:
@@ -47,46 +42,51 @@ class PoolsScreen(Screen):
     def update_pools(self, pools: list):
         table = self.query_one("#pools-table")
         table.clear()
-        empty = self.query_one("#pools-empty")
         if not pools:
-            empty.show()
-            self.query_one("#pools-alert").update("")
+            self.query_one("#pools-alert").update("[dim]No pools found[/dim]")
             return
-        empty.hide()
 
         starved = []
         for pool in pools:
-            util = 0
+            util = 0.0
             if pool.slots > 0:
                 util = (pool.used_slots / pool.slots) * 100
-                bar = "█" * int(util / 10) + "░" * (10 - int(util / 10))
+                filled = int(util / 10)
+                bar_raw = "█" * filled + "░" * (10 - filled)
+                if util < 60:
+                    bar = f"[green]{bar_raw}[/green]"
+                elif util < 85:
+                    bar = f"[yellow]{bar_raw}[/yellow]"
+                else:
+                    bar = f"[red]{bar_raw}[/red]"
             else:
-                bar = "░" * 10
+                bar = "[dim]░░░░░░░░░░[/dim]"
 
             # Contention: pool is at capacity and tasks are waiting
             at_capacity = pool.slots > 0 and pool.open_slots == 0
             contention = ""
             if at_capacity and pool.queued_slots > 0:
-                contention = f"⚠ {pool.queued_slots} waiting"
+                contention = f"[red]⚠ {pool.queued_slots} waiting[/red]"
                 starved.append((pool.name, pool.queued_slots))
             elif at_capacity:
-                contention = "full"
+                contention = "[yellow]full[/yellow]"
 
+            util_color = "green" if util < 60 else ("yellow" if util < 85 else "red")
             table.add_row(
                 pool.name,
                 str(pool.used_slots),
-                str(pool.queued_slots),
+                f"[cyan]{pool.queued_slots}[/cyan]" if pool.queued_slots else "0",
                 str(pool.running_slots),
                 str(pool.open_slots),
                 str(pool.slots),
-                f"{util:.0f}% {bar}",
+                f"[{util_color}]{util:.0f}%[/{util_color}] {bar}",
                 contention,
             )
 
         if starved:
-            msgs = ", ".join(f"{name} ({n} tasks queued)" for name, n in starved)
+            msgs = ", ".join(f"[yellow]{name}[/yellow] ({n} tasks queued)" for name, n in starved)
             self.query_one("#pools-alert").update(
                 f"[bold red]Pool Starvation:[/bold red] {msgs}"
             )
         else:
-            self.query_one("#pools-alert").update("All pools have capacity.")
+            self.query_one("#pools-alert").update("[green]All pools have capacity.[/green]")
