@@ -3,6 +3,7 @@
 from typing import Optional
 
 from textual.app import ComposeResult
+from textual.binding import Binding
 from textual.screen import Screen
 from textual.widgets import DataTable, Static
 
@@ -14,22 +15,45 @@ class TaskInstancesScreen(Screen):
         grid-size: 1 1;
     }
 
+    TaskInstancesScreen.log-visible {
+        grid-size: 1 2;
+        grid-rows: 1fr 12;
+    }
+
+    #log-panel {
+        display: none;
+        height: 100%;
+        background: $panel;
+        padding: 0 2;
+        overflow-y: auto;
+    }
+
+    TaskInstancesScreen.log-visible #log-panel {
+        display: block;
+    }
+
     .state-failed { color: $error; }
     .state-success { color: $success; }
     .state-running { color: $warning; }
     .state-queued { color: $info; }
     """
 
+    BINDINGS = [
+        Binding("l", "toggle_log", "Log"),
+    ]
+
     def __init__(self):
         super().__init__()
         self._current_dag_id: Optional[str] = None
         self._current_run_id: Optional[str] = None
+        self._log_visible = False
 
     def compose(self) -> ComposeResult:
         yield DataTable(id="task-instances-table")
         e = Static("No tasks found", id="tasks-empty")
         e.display = False
         yield e
+        yield Static("Press l on a task to view log snippet", id="log-panel")
 
     def on_mount(self) -> None:
         table = self.query_one("#task-instances-table")
@@ -82,6 +106,47 @@ class TaskInstancesScreen(Screen):
                 task.pool,
                 sla,
             )
+
+    def action_toggle_log(self):
+        """Toggle log panel visibility and request log for selected task."""
+        if self._log_visible:
+            self._log_visible = False
+            self.remove_class("log-visible")
+            return
+
+        table = self.query_one("#task-instances-table")
+        if table.cursor_row is None:
+            return
+
+        try:
+            row = table.get_row_at(table.cursor_row)
+            task_id = row[0]
+            try_number = 1
+            try_str = row[6]  # "try/max"
+            if "/" in str(try_str):
+                try_number = int(str(try_str).split("/")[0])
+        except Exception:
+            return
+
+        self._log_visible = True
+        self.add_class("log-visible")
+        self.query_one("#log-panel").update(f"Loading log for {task_id}...")
+
+        # Trigger log load via app
+        from textual.app import asyncio
+        asyncio.create_task(
+            self.app._load_task_log(
+                self._current_dag_id, self._current_run_id, task_id, try_number
+            )
+        )
+
+    def update_log(self, task_id: str, log_text: str):
+        """Update the log panel with log content."""
+        self.query_one("#log-panel").update(
+            f"[bold]Log: {task_id}[/bold] (last 30 lines)\n"
+            f"──────────────────────────────────────\n"
+            f"{log_text}"
+        )
 
     def _sort_by_state_first(self, tasks: list) -> list:
         priority = {"failed": 0, "running": 1, "queued": 2, "up_for_retry": 3}

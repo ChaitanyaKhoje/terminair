@@ -34,6 +34,7 @@ class Settings(BaseModel):
     theme: str = "dark"
     confirm_actions: bool = True
     timestamp_format: str = "relative"
+    watchlist: list = []
 
     @classmethod
     def from_env(cls) -> "Settings":

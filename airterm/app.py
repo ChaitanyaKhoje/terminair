@@ -1,5 +1,6 @@
 """Textual App subclass for AirTerm."""
 
+import asyncio as _asyncio
 from typing import Optional
 
 from textual.app import App, ComposeResult
@@ -8,6 +9,7 @@ from textual.binding import Binding
 from airterm.api.client import AirflowClient
 from airterm.api.poller import Poller
 from airterm.config import Config
+from airterm.screens.dag_deps import DagDepsScreen
 from airterm.screens.dag_detail import DagDetailScreen
 from airterm.screens.dag_graph import DAGGraphScreen
 from airterm.screens.dag_runs import DagRunsScreen
@@ -17,9 +19,11 @@ from airterm.screens.health import HealthScreen
 from airterm.screens.import_errors import ImportErrorsScreen
 from airterm.screens.pools import PoolsScreen
 from airterm.screens.recent_activity import RecentActivityScreen
+from airterm.screens.resource_timeline import ResourceTimelineScreen
 from airterm.screens.sla_misses import SlaMissScreen
 from airterm.screens.task_history import TaskHistoryScreen
 from airterm.screens.task_instances import TaskInstancesScreen
+from airterm.screens.watchlist import WatchlistScreen
 from airterm.screens.xcom_viewer import XComViewerScreen
 from airterm.themes.dark import DARK_CSS
 from airterm.widgets.command_palette import CommandPalette, CommandExecutor
@@ -41,6 +45,9 @@ class AirTermApp(App):
         "task_history": TaskHistoryScreen,
         "xcom_viewer": XComViewerScreen,
         "sla_misses": SlaMissScreen,
+        "dag_deps": DagDepsScreen,
+        "resource_timeline": ResourceTimelineScreen,
+        "watchlist": WatchlistScreen,
     }
     DEFAULT_AUTO_FOCUS = ""
 
@@ -48,16 +55,19 @@ class AirTermApp(App):
         Binding("ctrl+c", "quit", "Quit", priority=True),
         Binding("q", "quit", "Quit"),
         Binding("escape", "back", "Back"),
-        Binding("r", "refresh", "Refresh"),
+        Binding("w", "toggle_watch", "Watch"),
         Binding(":", "command_palette", "Command"),
         Binding("1", "switch_dags", "DAGs"),
         Binding("2", "switch_recent", "Recent"),
         Binding("3", "switch_pools", "Pools"),
         Binding("4", "switch_health", "Health"),
         Binding("5", "switch_errors", "Errors"),
+        Binding("6", "switch_sla", "SLA"),
+        Binding("7", "switch_timeline", "Timeline"),
+        Binding("0", "switch_watchlist", "Watchlist"),
         Binding("h", "view_task_history", "Task History"),
         Binding("g", "view_graph", "Graph"),
-        Binding("6", "switch_sla", "SLA"),
+        Binding("d", "view_deps", "Deps"),
         Binding("x", "view_xcoms", "XComs"),
     ]
 
@@ -67,14 +77,17 @@ class AirTermApp(App):
         self._client: Optional[AirflowClient] = None
         self._poller: Optional[Poller] = None
         self._nav_stack: list[tuple] = []
+        self._watchlist: list[str] = list(config.settings.watchlist)
+        self._auto_refresh_task: Optional[_asyncio.Task] = None
+        self._auto_refresh_enabled = False
+        # Tracks the context for the active screen so auto-refresh can reload
+        self._active_screen_context: Optional[str] = None
 
     def compose(self) -> ComposeResult:
         yield CommandPalette()
 
     def on_mount(self) -> None:
-        from textual.app import asyncio
-
-        asyncio.create_task(self._init_app())
+        _asyncio.create_task(self._init_app())
 
     async def _init_app(self) -> None:
         conn = self._config.connections.get(self._config.settings.default_connection)
@@ -121,34 +134,170 @@ class AirTermApp(App):
             limit=100,
         )
 
+    # ── Auto-refresh (watch mode) ────────────────────────────────────────────
+
+    def action_toggle_watch(self):
+        if self._auto_refresh_enabled:
+            self._stop_watch()
+        else:
+            self._start_watch()
+
+    def _start_watch(self):
+        self._auto_refresh_enabled = True
+        self._auto_refresh_task = _asyncio.create_task(self._watch_loop())
+        self._update_live_indicator(True)
+
+    def _stop_watch(self):
+        self._auto_refresh_enabled = False
+        if self._auto_refresh_task:
+            self._auto_refresh_task.cancel()
+            self._auto_refresh_task = None
+        self._update_live_indicator(False)
+
+    def _update_live_indicator(self, is_live: bool):
+        try:
+            screen = self.screen
+            if hasattr(screen, "update_footer_live"):
+                screen.update_footer_live(is_live)
+        except Exception:
+            pass
+
+    async def _watch_loop(self):
+        interval = self._config.settings.refresh_interval
+        while self._auto_refresh_enabled:
+            await _asyncio.sleep(interval)
+            if not self._auto_refresh_enabled:
+                break
+            try:
+                await self._refresh_current_screen()
+            except Exception:
+                pass
+
+    async def _refresh_current_screen(self):
+        """Re-load data for whatever screen is currently active."""
+        screen = self.screen
+        screen_id = screen.__class__.__name__
+
+        if screen_id == "DagsScreen":
+            await self._load_dags()
+        elif screen_id == "PoolsScreen":
+            await self._load_pools()
+        elif screen_id == "HealthScreen":
+            await self._load_health()
+        elif screen_id == "ImportErrorsScreen":
+            await self._load_import_errors()
+        elif screen_id == "RecentActivityScreen":
+            await self._load_recent_activity()
+        elif screen_id == "SlaMissScreen":
+            await self._load_sla_misses()
+        elif screen_id == "DagDetailScreen" and self._active_screen_context:
+            await self._load_dag_detail(self._active_screen_context)
+        elif screen_id == "ResourceTimelineScreen":
+            await self._load_resource_timeline()
+        elif screen_id == "WatchlistScreen":
+            await self._load_watchlist()
+
+    async def _load_dags(self):
+        try:
+            client = self._client
+            if not client:
+                return
+            result = await client.get_dags(limit=100)
+            self._cached_dags = result.dags
+            self.screen.update_dags(result.dags)
+        except Exception:
+            pass
+
+    # ── Screen switching ─────────────────────────────────────────────────────
+
+    def _cancel_watch_on_switch(self):
+        """Stop auto-refresh when navigating away."""
+        if self._auto_refresh_enabled:
+            self._stop_watch()
+
     def action_switch_dags(self):
+        self._cancel_watch_on_switch()
         while len(self.screen_stack) > 2:
             self.pop_screen()
 
     def action_switch_recent(self):
+        self._cancel_watch_on_switch()
         self.push_screen("recent_activity")
-        from textual.app import asyncio
-        asyncio.create_task(self._load_recent_activity())
+        _asyncio.create_task(self._load_recent_activity())
 
     def action_switch_pools(self):
+        self._cancel_watch_on_switch()
         self.push_screen("pools")
-        from textual.app import asyncio
-        asyncio.create_task(self._load_pools())
+        _asyncio.create_task(self._load_pools())
 
     def action_switch_health(self):
+        self._cancel_watch_on_switch()
         self.push_screen("health")
-        from textual.app import asyncio
-        asyncio.create_task(self._load_health())
+        _asyncio.create_task(self._load_health())
 
     def action_switch_errors(self):
+        self._cancel_watch_on_switch()
         self.push_screen("import_errors")
-        from textual.app import asyncio
-        asyncio.create_task(self._load_import_errors())
+        _asyncio.create_task(self._load_import_errors())
 
     def action_switch_sla(self):
+        self._cancel_watch_on_switch()
         self.push_screen("sla_misses")
-        from textual.app import asyncio
-        asyncio.create_task(self._load_sla_misses())
+        _asyncio.create_task(self._load_sla_misses())
+
+    def action_switch_timeline(self):
+        self._cancel_watch_on_switch()
+        self.push_screen("resource_timeline")
+        _asyncio.create_task(self._load_resource_timeline())
+
+    def action_switch_watchlist(self):
+        self._cancel_watch_on_switch()
+        self.push_screen("watchlist")
+        _asyncio.create_task(self._load_watchlist())
+
+    # ── DAG-context actions (g, h, d — require dags-table selection) ─────────
+
+    def _get_selected_dag_id(self) -> Optional[str]:
+        """Get the selected DAG ID from the dags table, or None."""
+        dags = getattr(self, "_cached_dags", [])
+        try:
+            table = self.screen.query_one("#dags-table")
+        except Exception:
+            return None
+        if not dags or table is None or table.cursor_row is None:
+            return None
+        # Account for filter
+        filter_text = getattr(self.screen, "_filter_text", "")
+        visible = dags
+        if filter_text:
+            visible = [d for d in dags if filter_text in d.dag_id.lower()]
+        if table.cursor_row >= len(visible):
+            return None
+        return visible[table.cursor_row].dag_id
+
+    def action_view_task_history(self):
+        dag_id = self._get_selected_dag_id()
+        if not dag_id:
+            return
+        self._cancel_watch_on_switch()
+        self.push_screen("task_history")
+        _asyncio.create_task(self._load_task_history(dag_id))
+
+    def action_view_graph(self):
+        dag_id = self._get_selected_dag_id()
+        if not dag_id:
+            return
+        self._cancel_watch_on_switch()
+        self.push_screen("dag_graph")
+        _asyncio.create_task(self._load_dag_graph(dag_id))
+
+    def action_view_deps(self):
+        dag_id = self._get_selected_dag_id()
+        if not dag_id:
+            return
+        self._cancel_watch_on_switch()
+        self.push_screen("dag_deps")
+        _asyncio.create_task(self._load_dag_deps(dag_id))
 
     def action_view_xcoms(self):
         """Open XCom viewer for the selected task in the current task instances screen."""
@@ -158,7 +307,6 @@ class AirTermApp(App):
             return
         if table is None or table.cursor_row is None:
             return
-        # Get context from the task instances screen
         dag_id, run_id = self.screen.get_context()
         if not dag_id or not run_id:
             return
@@ -167,69 +315,25 @@ class AirTermApp(App):
             task_id = row[0]
         except Exception:
             return
+        self._cancel_watch_on_switch()
         self.push_screen("xcom_viewer")
-        from textual.app import asyncio
-        asyncio.create_task(self._load_xcoms(dag_id, run_id, task_id))
+        _asyncio.create_task(self._load_xcoms(dag_id, run_id, task_id))
 
-    async def _load_sla_misses(self):
-        from datetime import datetime, timezone
-        try:
-            client = self._client
-            if not client:
-                return
-            # Get all currently running DAG runs
-            running_result = await client.get_all_dag_runs(limit=100)
-            running = [r for r in running_result.dag_runs if r.state and r.state.value == "running"]
+    def action_view_dag_detail(self, dag_id: str = ""):
+        self._nav_stack.append(("dags", dag_id))
+        self.push_screen("dag_detail")
 
-            if not running:
-                self.screen.update_sla([], 0)
-                return
+    def action_drill_in(self):
+        dag_id = self._get_selected_dag_id()
+        if not dag_id:
+            return
+        self._cancel_watch_on_switch()
+        self._nav_stack.append(("dags", dag_id))
+        self._active_screen_context = dag_id
+        self.push_screen("dag_detail")
+        _asyncio.create_task(self._load_dag_detail(dag_id))
 
-            # Collect historical durations per dag_id to compute P95
-            dag_durations: dict[str, list[float]] = {}
-            for run in running_result.dag_runs:
-                if run.start_date and run.end_date:
-                    dag_durations.setdefault(run.dag_id, []).append(
-                        (run.end_date - run.start_date).total_seconds()
-                    )
-
-            now = datetime.now(timezone.utc)
-            breaches = []
-            for run in running:
-                if not run.start_date:
-                    continue
-                running_for = (now - run.start_date).total_seconds()
-                durations = dag_durations.get(run.dag_id, [])
-                if len(durations) < 3:
-                    continue
-                sorted_d = sorted(durations)
-                p95 = sorted_d[int(len(sorted_d) * 0.95)]
-                if running_for > p95:
-                    breaches.append({
-                        "dag_id": run.dag_id,
-                        "run_id": run.dag_run_id,
-                        "state": run.state.value,
-                        "running_for": running_for,
-                        "p95": p95,
-                        "over_by": running_for - p95,
-                        "started": str(run.start_date)[:19],
-                    })
-
-            self.screen.update_sla(breaches, len(running))
-        except Exception:
-            pass
-
-    async def _load_xcoms(self, dag_id: str, run_id: str, task_id: str):
-        try:
-            client = self._client
-            if not client:
-                return
-            screen = self.screen
-            screen.set_context(dag_id, run_id, task_id)
-            result = await client.get_xcom_entries(dag_id, run_id, task_id)
-            screen.update_xcoms(result.xcom_entries)
-        except Exception:
-            pass
+    # ── Data loaders ─────────────────────────────────────────────────────────
 
     async def _load_recent_activity(self):
         try:
@@ -318,31 +422,63 @@ class AirTermApp(App):
         except Exception:
             pass
 
-    def action_view_task_history(self):
-        dags = getattr(self, "_cached_dags", [])
+    async def _load_sla_misses(self):
+        from datetime import datetime, timezone
         try:
-            table = self.screen.query_one("#dags-table")
-        except Exception:
-            table = None
-        if not dags or table is None or table.cursor_row is None:
-            return
-        dag = dags[table.cursor_row]
-        self.push_screen("task_history")
-        from textual.app import asyncio
-        asyncio.create_task(self._load_task_history(dag.dag_id))
+            client = self._client
+            if not client:
+                return
+            running_result = await client.get_all_dag_runs(limit=100)
+            running = [r for r in running_result.dag_runs if r.state and r.state.value == "running"]
 
-    def action_view_graph(self):
-        dags = getattr(self, "_cached_dags", [])
-        try:
-            table = self.screen.query_one("#dags-table")
+            if not running:
+                self.screen.update_sla([], 0)
+                return
+
+            dag_durations: dict = {}
+            for run in running_result.dag_runs:
+                if run.start_date and run.end_date:
+                    dag_durations.setdefault(run.dag_id, []).append(
+                        (run.end_date - run.start_date).total_seconds()
+                    )
+
+            now = datetime.now(timezone.utc)
+            breaches = []
+            for run in running:
+                if not run.start_date:
+                    continue
+                running_for = (now - run.start_date).total_seconds()
+                durations = dag_durations.get(run.dag_id, [])
+                if len(durations) < 3:
+                    continue
+                sorted_d = sorted(durations)
+                p95 = sorted_d[int(len(sorted_d) * 0.95)]
+                if running_for > p95:
+                    breaches.append({
+                        "dag_id": run.dag_id,
+                        "run_id": run.dag_run_id,
+                        "state": run.state.value,
+                        "running_for": running_for,
+                        "p95": p95,
+                        "over_by": running_for - p95,
+                        "started": str(run.start_date)[:19],
+                    })
+
+            self.screen.update_sla(breaches, len(running))
         except Exception:
-            table = None
-        if not dags or table is None or table.cursor_row is None:
-            return
-        dag = dags[table.cursor_row]
-        self.push_screen("dag_graph")
-        from textual.app import asyncio
-        asyncio.create_task(self._load_dag_graph(dag.dag_id))
+            pass
+
+    async def _load_xcoms(self, dag_id: str, run_id: str, task_id: str):
+        try:
+            client = self._client
+            if not client:
+                return
+            screen = self.screen
+            screen.set_context(dag_id, run_id, task_id)
+            result = await client.get_xcom_entries(dag_id, run_id, task_id)
+            screen.update_xcoms(result.xcom_entries)
+        except Exception:
+            pass
 
     async def _load_dag_graph(self, dag_id: str):
         try:
@@ -394,25 +530,6 @@ class AirTermApp(App):
             screen.update_history(all_entries, failure_rate, avg_duration, total_retries, pattern)
         except Exception:
             pass
-
-    def action_view_dag_detail(self, dag_id: str = ""):
-        self._nav_stack.append(("dags", dag_id))
-        self.push_screen("dag_detail")
-
-    def action_drill_in(self):
-        try:
-            table = self.screen.query_one("#dags-table")
-        except Exception:
-            return
-        if table and table.cursor_row is not None:
-            dags = getattr(self, "_cached_dags", [])
-            if dags and table.cursor_row < len(dags):
-                dag = dags[table.cursor_row]
-                self._nav_stack.append(("dags", dag.dag_id))
-                self.push_screen("dag_detail")
-                from textual.app import asyncio
-
-                asyncio.create_task(self._load_dag_detail(dag.dag_id))
 
     async def _load_dag_detail(self, dag_id: str):
         from airterm.metrics.aggregations import (
@@ -469,20 +586,209 @@ class AirTermApp(App):
         except Exception:
             pass
 
-    def action_focus_filter(self):
+    async def _load_dag_deps(self, dag_id: str):
+        """Load dataset dependency information for a DAG."""
         try:
-            from airterm.widgets.filter_input import FilterInput
+            client = self._client
+            if not client:
+                return
 
-            filter_bar = self.screen.query_one(FilterInput)
-            filter_bar.open()
+            screen = self.screen
+            screen.set_context(dag_id)
+
+            datasets_result = await client.get_datasets()
+            events_result = await client.get_dataset_events()
+
+            deps = []
+
+            # Find datasets this DAG produces (it's the source)
+            produced_uris = set()
+            for event in events_result.dataset_events:
+                if event.source_dag_id == dag_id:
+                    produced_uris.add(event.dataset_uri)
+                    deps.append({
+                        "dag_id": dag_id,
+                        "relationship": "produces",
+                        "dataset_uri": event.dataset_uri,
+                        "last_event": str(event.created_at)[:19],
+                    })
+
+            # Deduplicate produced datasets
+            seen_produced = set()
+            unique_produced = []
+            for d in deps:
+                key = d["dataset_uri"]
+                if key not in seen_produced:
+                    seen_produced.add(key)
+                    unique_produced.append(d)
+            deps = unique_produced
+
+            # Find DAGs that consume those datasets (they appear as dataset events
+            # from other DAGs, or are in the dataset list and consumed by other DAGs)
+            # Since Airflow REST API doesn't directly expose consumer DAGs,
+            # we look at all events to find other DAGs that reference these datasets
+            consumer_events = {}
+            for event in events_result.dataset_events:
+                if event.dataset_uri in produced_uris and event.source_dag_id != dag_id:
+                    if event.source_dag_id not in consumer_events:
+                        consumer_events[event.source_dag_id] = {
+                            "dataset_uri": event.dataset_uri,
+                            "last_event": str(event.created_at)[:19],
+                        }
+
+            for consumer_dag, info in consumer_events.items():
+                deps.append({
+                    "dag_id": consumer_dag,
+                    "relationship": "consumes",
+                    "dataset_uri": info["dataset_uri"],
+                    "last_event": info["last_event"],
+                })
+
+            screen.update_deps(deps, dag_id)
         except Exception:
             pass
 
-    def action_refresh(self):
+    async def _load_task_log(self, dag_id: str, run_id: str, task_id: str, try_number: int):
+        """Fetch task log and display last 30 lines in task instances screen."""
         try:
-            current = self.screen_stack[-1] if self.screen_stack else None
-            if hasattr(current, "refresh"):
-                current.refresh()
+            client = self._client
+            if not client:
+                return
+            log_text = await client.get_task_log(dag_id, run_id, task_id, try_number)
+            lines = log_text.strip().split("\n")
+            tail = "\n".join(lines[-30:])
+            self.screen.update_log(task_id, tail)
+        except Exception as e:
+            try:
+                self.screen.update_log(task_id, f"Failed to fetch log: {str(e)[:100]}")
+            except Exception:
+                pass
+
+    async def _load_resource_timeline(self):
+        """Build a 24-hour pool usage timeline from recent task instances."""
+        from datetime import datetime, timezone, timedelta
+        try:
+            client = self._client
+            if not client:
+                return
+
+            now = datetime.now(timezone.utc)
+            cutoff = now - timedelta(hours=24)
+            cutoff_str = cutoff.isoformat()
+
+            # Get recent runs and pools
+            runs_result = await client.get_all_dag_runs(
+                limit=200, end_date_gte=cutoff_str
+            )
+            pools_result = await client.get_pools()
+
+            pool_capacity = {p.name: p.slots for p in pools_result.pools}
+            # pool_hours[pool_name][hour_offset] = total slot-minutes in that hour
+            pool_hours: dict = {}
+            # consumer tracking: dag_id → {slot_minutes, pool}
+            consumers: dict = {}
+
+            # For each run, fetch task instances to get pool + timing
+            for run in runs_result.dag_runs:
+                if not run.start_date:
+                    continue
+                try:
+                    ti_result = await client.get_task_instances(run.dag_id, run.dag_run_id)
+                except Exception:
+                    continue
+
+                for ti in ti_result.task_instances:
+                    if not ti.start_date:
+                        continue
+                    end = ti.end_date or now
+                    pool = ti.pool or "default_pool"
+                    duration_mins = (end - ti.start_date).total_seconds() / 60
+
+                    # Track consumers
+                    key = f"{run.dag_id}:{pool}"
+                    if key not in consumers:
+                        consumers[key] = {"dag_id": run.dag_id, "slot_minutes": 0, "pool": pool}
+                    consumers[key]["slot_minutes"] += duration_mins
+
+                    # Map to hourly buckets
+                    if pool not in pool_hours:
+                        pool_hours[pool] = {}
+                    # Which hour offset does this task fall in?
+                    hours_ago = (now - ti.start_date).total_seconds() / 3600
+                    hour_offset = min(int(hours_ago), 23)
+                    if 0 <= hour_offset <= 23:
+                        pool_hours[pool][hour_offset] = pool_hours[pool].get(hour_offset, 0) + 1
+
+            top_consumers = sorted(consumers.values(), key=lambda x: x["slot_minutes"], reverse=True)
+
+            self.screen.update_timeline(pool_hours, pool_capacity, top_consumers)
+        except Exception:
+            pass
+
+    async def _load_watchlist(self):
+        """Load status for all bookmarked DAGs."""
+        from airterm.metrics.aggregations import compute_duration_stats, compute_success_rate
+        try:
+            client = self._client
+            if not client:
+                return
+
+            watchlist = self._watchlist
+            if not watchlist:
+                self.screen.update_watchlist([])
+                return
+
+            entries = []
+            for dag_id in watchlist:
+                try:
+                    runs_result = await client.get_dag_runs(dag_id, limit=10)
+                    runs = runs_result.dag_runs
+                    if not runs:
+                        entries.append({"dag_id": dag_id, "state": "no runs"})
+                        continue
+
+                    latest = runs[0]
+                    state = latest.state.value if latest.state else ""
+                    duration = ""
+                    duration_secs = 0.0
+                    if latest.start_date and latest.end_date:
+                        duration_secs = (latest.end_date - latest.start_date).total_seconds()
+                        duration = f"{int(duration_secs // 60)}m {int(duration_secs % 60)}s"
+
+                    stats = compute_duration_stats(runs)
+                    avg = stats.get("avg", 0.0)
+                    avg_str = f"{int(avg // 60)}m {int(avg % 60)}s" if avg else ""
+                    drift = ""
+                    if avg > 0 and duration_secs > 0:
+                        pct = ((duration_secs - avg) / avg) * 100
+                        sign = "+" if pct > 0 else ""
+                        drift = f"{sign}{pct:.0f}%"
+
+                    sr = compute_success_rate(runs) * 100
+
+                    entries.append({
+                        "dag_id": dag_id,
+                        "state": state,
+                        "last_run": str(latest.execution_date)[:16],
+                        "duration": duration,
+                        "avg_duration": avg_str,
+                        "drift": drift,
+                        "success_rate": f"{sr:.0f}%",
+                    })
+                except Exception:
+                    entries.append({"dag_id": dag_id, "state": "error"})
+
+            self.screen.update_watchlist(entries)
+        except Exception:
+            pass
+
+    # ── Navigation ───────────────────────────────────────────────────────────
+
+    def action_focus_filter(self):
+        try:
+            from airterm.widgets.filter_input import FilterInput
+            filter_bar = self.screen.query_one(FilterInput)
+            filter_bar.open()
         except Exception:
             pass
 
@@ -494,8 +800,7 @@ class AirTermApp(App):
             pass
 
     def action_back(self):
-        # stack[0] = base compose screen, stack[1] = DagsScreen (root nav level)
-        # Don't pop below DagsScreen
+        self._cancel_watch_on_switch()
         if len(self.screen_stack) > 2:
             self.pop_screen()
 
