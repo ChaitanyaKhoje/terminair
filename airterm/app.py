@@ -269,6 +269,43 @@ class AirTermApp(App):
                 dag = dags[table.cursor_row]
                 self._nav_stack.append(("dags", dag.dag_id))
                 self.push_screen("dag_detail")
+                self._load_dag_detail(dag.dag_id)
+
+    async def _load_dag_detail(self, dag_id: str):
+        try:
+            client = self._client
+            if not client:
+                return
+            runs_result = await client.get_dag_runs(dag_id, limit=50)
+            dag_info = await client.get_dag(dag_id)
+
+            screen = self.screen.query_one("#run-table")
+            screen.clear()
+
+            for run in runs_result.dag_runs:
+                duration = ""
+                if run.start_date and run.end_date:
+                    delta = run.end_date - run.start_date
+                    seconds = delta.total_seconds()
+                    duration = f"{int(seconds // 60)}m {int(seconds % 60)}s"
+
+                error = ""
+                if run.state.value == "failed":
+                    error = run.dag_run_id[:30]
+
+                screen.add_row(
+                    run.dag_run_id[:30],
+                    run.state.value if run.state else "",
+                    run.run_type,
+                    str(run.execution_date)[:16],
+                    duration,
+                    "",
+                    error,
+                )
+
+            self.query_one("#breadcrumb").set_path(f"DAGs > {dag_id}")
+        except Exception:
+            pass
 
     def action_focus_filter(self):
         try:
