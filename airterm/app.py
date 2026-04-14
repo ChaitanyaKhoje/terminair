@@ -692,48 +692,36 @@ class AirTermApp(App):
             cutoff = now - timedelta(hours=24)
             cutoff_str = cutoff.isoformat()
 
-            # Get recent runs and pools
-            runs_result = await client.get_all_dag_runs(
-                limit=200, end_date_gte=cutoff_str
+            # 2 API calls instead of 200+
+            ti_result = await client.get_all_task_instances(
+                end_date_gte=cutoff_str, limit=500
             )
             pools_result = await client.get_pools()
 
             pool_capacity = {p.name: p.slots for p in pools_result.pools}
-            # pool_hours[pool_name][hour_offset] = total slot-minutes in that hour
             pool_hours: dict = {}
-            # consumer tracking: dag_id → {slot_minutes, pool}
             consumers: dict = {}
 
-            # For each run, fetch task instances to get pool + timing
-            for run in runs_result.dag_runs:
-                if not run.start_date:
+            for ti in ti_result.task_instances:
+                if not ti.start_date:
                     continue
-                try:
-                    ti_result = await client.get_task_instances(run.dag_id, run.dag_run_id)
-                except Exception:
-                    continue
+                end = ti.end_date or now
+                pool = ti.pool or "default_pool"
+                duration_mins = (end - ti.start_date).total_seconds() / 60
 
-                for ti in ti_result.task_instances:
-                    if not ti.start_date:
-                        continue
-                    end = ti.end_date or now
-                    pool = ti.pool or "default_pool"
-                    duration_mins = (end - ti.start_date).total_seconds() / 60
+                # Track consumers
+                key = f"{ti.dag_id}:{pool}"
+                if key not in consumers:
+                    consumers[key] = {"dag_id": ti.dag_id, "slot_minutes": 0, "pool": pool}
+                consumers[key]["slot_minutes"] += duration_mins
 
-                    # Track consumers
-                    key = f"{run.dag_id}:{pool}"
-                    if key not in consumers:
-                        consumers[key] = {"dag_id": run.dag_id, "slot_minutes": 0, "pool": pool}
-                    consumers[key]["slot_minutes"] += duration_mins
-
-                    # Map to hourly buckets
-                    if pool not in pool_hours:
-                        pool_hours[pool] = {}
-                    # Which hour offset does this task fall in?
-                    hours_ago = (now - ti.start_date).total_seconds() / 3600
-                    hour_offset = min(int(hours_ago), 23)
-                    if 0 <= hour_offset <= 23:
-                        pool_hours[pool][hour_offset] = pool_hours[pool].get(hour_offset, 0) + 1
+                # Map to hourly buckets
+                if pool not in pool_hours:
+                    pool_hours[pool] = {}
+                hours_ago = (now - ti.start_date).total_seconds() / 3600
+                hour_offset = min(int(hours_ago), 23)
+                if 0 <= hour_offset <= 23:
+                    pool_hours[pool][hour_offset] = pool_hours[pool].get(hour_offset, 0) + 1
 
             top_consumers = sorted(consumers.values(), key=lambda x: x["slot_minutes"], reverse=True)
 
