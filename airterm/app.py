@@ -122,9 +122,14 @@ class AirTermApp(App):
                     f"Cannot connect to {conn.url}\n\nIs Airflow running? Check the URL."
                 )
             elif "401" in err_msg or "403" in err_msg or "Unauthorized" in err_msg:
-                self._show_error(f"Authentication failed.\n\nCheck username and password.")
+                self._show_error("Authentication failed.\n\nCheck username and password.")
+            elif "token" in err_msg.lower() or "Bearer" in err_msg:
+                self._show_error(
+                    f"Token auth error: {err_msg[:120]}\n\n"
+                    "Use --user/--password for basic auth, or set a valid token in config.yaml."
+                )
             else:
-                self._show_error(f"Connection error: {err_msg[:100]}")
+                self._show_error(f"Connection error: {err_msg[:120]}")
             return
 
         if not dags_result or not dags_result.dags:

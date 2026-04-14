@@ -4,26 +4,29 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Optional, Union
+from typing import Annotated, Literal, Optional, Union
 
 import yaml
 from pydantic import BaseModel, Field
 
 
 class ConnectionAuthBasic(BaseModel):
-    type: str = "basic"
+    type: Literal["basic"] = "basic"
     username: str
     password: str
 
 
 class ConnectionAuthToken(BaseModel):
-    type: str = "token"
+    type: Literal["token"] = "token"
     token: str
 
 
 class Connection(BaseModel):
     url: str
-    auth: Union[ConnectionAuthBasic, ConnectionAuthToken]
+    auth: Annotated[
+        Union[ConnectionAuthBasic, ConnectionAuthToken],
+        Field(discriminator="type"),
+    ]
 
 
 class Settings(BaseModel):

@@ -11,7 +11,13 @@ def build_auth(auth_config) -> httpx.Auth:
             password=auth_config.password,
         )
     elif auth_type == "token":
-        return TokenAuth(auth_config.token)
+        token = auth_config.token
+        if not token or not token.strip():
+            raise ValueError(
+                "Token auth is configured but the token value is empty.\n"
+                "Set 'token' in your config.yaml or via an environment variable."
+            )
+        return TokenAuth(token.strip())
     else:
         raise ValueError(f"Unknown auth type: {auth_type}")
 
