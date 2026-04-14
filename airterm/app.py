@@ -51,6 +51,19 @@ class AirTermApp(App):
     }
     DEFAULT_AUTO_FOCUS = ""
 
+    # Per-screen refresh intervals (seconds)
+    _SCREEN_REFRESH_INTERVALS = {
+        "DagsScreen": 5,
+        "RecentActivityScreen": 10,
+        "PoolsScreen": 30,
+        "HealthScreen": 60,
+        "ImportErrorsScreen": 60,
+        "SlaMissScreen": 30,
+        "DagDetailScreen": 5,
+        "ResourceTimelineScreen": 30,
+        "WatchlistScreen": 30,
+    }
+
     BINDINGS = [
         Binding("ctrl+c", "quit", "Quit", priority=True),
         Binding("q", "quit", "Quit"),
@@ -80,6 +93,7 @@ class AirTermApp(App):
         self._watchlist: list[str] = list(config.settings.watchlist)
         self._auto_refresh_task: Optional[_asyncio.Task] = None
         self._auto_refresh_enabled = False
+        self._refresh_in_flight = False
         # Tracks the context for the active screen so auto-refresh can reload
         self._active_screen_context: Optional[str] = None
 
@@ -178,15 +192,23 @@ class AirTermApp(App):
             pass
 
     async def _watch_loop(self):
-        interval = self._config.settings.refresh_interval
         while self._auto_refresh_enabled:
+            screen_id = self.screen.__class__.__name__
+            interval = self._SCREEN_REFRESH_INTERVALS.get(
+                screen_id, self._config.settings.refresh_interval
+            )
             await _asyncio.sleep(interval)
             if not self._auto_refresh_enabled:
                 break
+            if self._refresh_in_flight:
+                continue
+            self._refresh_in_flight = True
             try:
                 await self._refresh_current_screen()
             except Exception as e:
                 self._flash_error(f"Refresh failed: {str(e)[:80]}")
+            finally:
+                self._refresh_in_flight = False
 
     async def _refresh_current_screen(self):
         """Re-load data for whatever screen is currently active."""
