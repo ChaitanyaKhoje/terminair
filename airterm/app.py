@@ -253,6 +253,28 @@ class AirTermApp(App):
 
     def action_view_graph(self):
         self.push_screen("dag_graph")
+        self._load_dag_graph()
+
+    async def _load_dag_graph(self):
+        try:
+            dags = getattr(self, "_cached_dags", [])
+            if not dags:
+                return
+            table = self.screen.query_one("#dags-table", None)
+            if not table or table.cursor_row is None:
+                return
+            dag = dags[table.cursor_row]
+            dag_id = dag.dag_id
+            client = self._client
+            detail = await client.get_dag_details(dag_id)
+            tasks = [{"id": t.task_id} for t in detail.tasks]
+            edges = []
+            for task in detail.tasks:
+                for upstream in task.upstream_task_ids:
+                    edges.append((upstream, task.task_id))
+            self.screen.render_graph(tasks, edges)
+        except Exception:
+            pass
 
     def action_view_dag_detail(self, dag_id: str = ""):
         self._nav_stack.append(("dags", dag_id))
