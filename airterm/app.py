@@ -844,6 +844,19 @@ class AirTermApp(App):
         pass
 
     def action_quit(self):
+        if self._auto_refresh_enabled:
+            self._stop_watch()
+        if self._poller or self._client:
+            _asyncio.create_task(self._shutdown())
+        else:
+            self.exit()
+
+    async def _shutdown(self):
+        """Clean shutdown: stop poller, close HTTP client."""
+        if self._poller:
+            await self._poller.stop_all()
+        if self._client:
+            await self._client.close()
         self.exit()
 
     def _show_error(self, message: str):
