@@ -135,13 +135,6 @@ class AirTermApp(App):
         self.push_screen("import_errors")
         self._load_import_errors()
 
-    def action_view_graph(self):
-        self.push_screen("dag_graph")
-        self._load_dag_graph()
-
-    def action_view_task_history(self):
-        self.push_screen("task_history")
-
     async def _load_recent_activity(self):
         try:
             client = self._client
@@ -249,46 +242,81 @@ class AirTermApp(App):
             pass
 
     def action_view_task_history(self):
+        dags = getattr(self, "_cached_dags", [])
+        try:
+            table = self.screen.query_one("#dags-table")
+        except Exception:
+            table = None
+        if not dags or table is None or table.cursor_row is None:
+            return
+        dag = dags[table.cursor_row]
         self.push_screen("task_history")
+        from textual.app import asyncio
+        asyncio.create_task(self._load_task_history(dag.dag_id))
 
     def action_view_graph(self):
-        self.push_screen("dag_graph")
-        self._load_dag_graph()
-
-    async def _load_dag_graph(self):
-        import sys
-
-        print(f"DEBUG: _load_dag_graph called", file=sys.stderr, flush=True)
+        dags = getattr(self, "_cached_dags", [])
         try:
-            dags = getattr(self, "_cached_dags", [])
-            print(f"DEBUG: dags count = {len(dags)}", file=sys.stderr, flush=True)
-            if not dags:
-                return
-            table = self.screen.query_one("#dags-table", None)
-            print(f"DEBUG: table = {table}", file=sys.stderr, flush=True)
-            if not table or table.cursor_row is None:
-                print(f"DEBUG: no cursor_row", file=sys.stderr, flush=True)
-                return
-            dag = dags[table.cursor_row]
-            dag_id = dag.dag_id
-            print(f"DEBUG: dag_id = {dag_id}", file=sys.stderr, flush=True)
+            table = self.screen.query_one("#dags-table")
+        except Exception:
+            table = None
+        if not dags or table is None or table.cursor_row is None:
+            return
+        dag = dags[table.cursor_row]
+        self.push_screen("dag_graph")
+        from textual.app import asyncio
+        asyncio.create_task(self._load_dag_graph(dag.dag_id))
+
+    async def _load_dag_graph(self, dag_id: str):
+        try:
             client = self._client
-            print(f"DEBUG: client = {client}", file=sys.stderr, flush=True)
+            if not client:
+                return
             detail = await client.get_dag_details(dag_id)
-            print(f"DEBUG: tasks count = {len(detail.tasks)}", file=sys.stderr, flush=True)
             tasks = [{"id": t.task_id} for t in detail.tasks]
             edges = []
             for task in detail.tasks:
                 for upstream in task.upstream_task_ids:
                     edges.append((upstream, task.task_id))
-            print(f"DEBUG: edges count = {len(edges)}", file=sys.stderr, flush=True)
             self.screen.render_graph(tasks, edges)
-            print(f"DEBUG: render_graph called", file=sys.stderr, flush=True)
-        except Exception as e:
-            print(f"DEBUG: exception = {e}", file=sys.stderr, flush=True)
-            import traceback
+        except Exception:
+            pass
 
-            traceback.print_exc(file=sys.stderr)
+    async def _load_task_history(self, dag_id: str):
+        try:
+            client = self._client
+            if not client:
+                return
+            runs_result = await client.get_dag_runs(dag_id, limit=20)
+            all_entries = []
+            failure_count = 0
+            total_duration = 0.0
+            total_retries = 0
+            count = 0
+            for run in runs_result.dag_runs:
+                state = run.state.value if run.state else ""
+                duration = 0.0
+                if run.start_date and run.end_date:
+                    duration = (run.end_date - run.start_date).total_seconds()
+                    total_duration += duration
+                if state == "failed":
+                    failure_count += 1
+                all_entries.append({
+                    "run_id": run.dag_run_id,
+                    "state": state,
+                    "duration": duration,
+                    "try_number": "",
+                })
+                count += 1
+            failure_rate = (failure_count / count * 100) if count else 0.0
+            avg_duration = (total_duration / count) if count else 0.0
+            recent_states = [e["state"] for e in all_entries[:10]]
+            pattern = " ".join(["✓" if s == "success" else "✗" for s in recent_states])
+            screen = self.screen
+            screen.set_context("(all tasks)", dag_id)
+            screen.update_history(all_entries, failure_rate, avg_duration, total_retries, pattern)
+        except Exception:
+            pass
 
     def action_view_dag_detail(self, dag_id: str = ""):
         self._nav_stack.append(("dags", dag_id))
