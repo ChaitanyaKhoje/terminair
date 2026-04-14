@@ -414,9 +414,9 @@ class AirTermApp(App):
             table.clear()
             for log in logs_result.event_logs:
                 table.add_row(
-                    str(log.when)[:19] if log.when else "",
+                    str(log.event_timestamp)[:19] if log.event_timestamp else "",
                     log.dag_id or "",
-                    log.event if log.event else "",
+                    log.event_type if log.event_type else "",
                     log.owner if log.owner else "",
                 )
         except Exception:
