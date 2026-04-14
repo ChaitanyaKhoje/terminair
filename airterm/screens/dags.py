@@ -43,9 +43,9 @@ class DagsScreen(Screen):
     """
 
     BINDINGS = [
-        Binding("r", "refresh", "Refresh"),
         Binding("enter", "drill_in", "Drill In", priority=True),
         Binding("/", "show_filter", "Filter", priority=True),
+        Binding("b", "bookmark", "Bookmark"),
     ]
 
     def __init__(self):
@@ -96,16 +96,21 @@ class DagsScreen(Screen):
                 "[dim]<[/dim][cyan]2[/cyan][dim]>[/dim] Recent "
                 "[dim]<[/dim][cyan]3[/cyan][dim]>[/dim] Pools  "
                 "[dim]<[/dim][cyan]4[/cyan][dim]>[/dim] Health "
-                "[dim]<[/dim][cyan]5[/cyan][dim]>[/dim] Errors",
+                "[dim]<[/dim][cyan]5[/cyan][dim]>[/dim] Errors "
+                "[dim]<[/dim][cyan]6[/cyan][dim]>[/dim] SLA "
+                "[dim]<[/dim][cyan]7[/cyan][dim]>[/dim] Timeline",
 
                 " [dim]<[/dim][cyan]enter[/cyan][dim]>[/dim] Drill  "
                 "[dim]<[/dim][cyan]esc[/cyan][dim]>[/dim] Back  "
                 "[dim]<[/dim][cyan]/[/cyan][dim]>[/dim] Filter  "
-                "[dim]<[/dim][cyan]r[/cyan][dim]>[/dim] Refresh",
+                "[dim]<[/dim][cyan]w[/cyan][dim]>[/dim] Watch  "
+                "[dim]<[/dim][cyan]b[/cyan][dim]>[/dim] Bookmark",
 
                 " [dim]<[/dim][cyan]g[/cyan][dim]>[/dim] Graph  "
                 "[dim]<[/dim][cyan]h[/cyan][dim]>[/dim] History  "
-                "[dim]<[/dim][cyan]:[/cyan][dim]>[/dim] Command  "
+                "[dim]<[/dim][cyan]d[/cyan][dim]>[/dim] Deps  "
+                "[dim]<[/dim][cyan]0[/cyan][dim]>[/dim] Watchlist  "
+                "[dim]<[/dim][cyan]:[/cyan][dim]>[/dim] Cmd  "
                 "[dim]<[/dim][cyan]q[/cyan][dim]>[/dim] Quit",
             ]
             pad = 38
@@ -135,6 +140,32 @@ class DagsScreen(Screen):
     def action_drill_in(self) -> None:
         self.app.action_drill_in()
 
+    # ── bookmark ──────────────────────────────────────────────────────────────
+
+    def action_bookmark(self) -> None:
+        table = self.query_one("#dags-table", DataTable)
+        if table.cursor_row is None:
+            return
+        dags = self._all_dags
+        if not dags or table.cursor_row >= len(dags):
+            return
+
+        # Filter may have changed which DAGs are displayed
+        visible_dags = dags
+        if self._filter_text:
+            visible_dags = [d for d in dags if self._filter_text in d.dag_id.lower()]
+        if table.cursor_row >= len(visible_dags):
+            return
+
+        dag_id = visible_dags[table.cursor_row].dag_id
+        watchlist = getattr(self.app, "_watchlist", [])
+        if dag_id in watchlist:
+            watchlist.remove(dag_id)
+        else:
+            watchlist.append(dag_id)
+        self.app._watchlist = watchlist
+        self._render_table()
+
     # ── data ──────────────────────────────────────────────────────────────────
 
     def _load_from_app(self):
@@ -149,6 +180,16 @@ class DagsScreen(Screen):
         self._all_dags = dags
         self._render_table()
 
+    def update_footer_live(self, is_live: bool):
+        footer = self.query_one("#dags-footer", Static)
+        base = "  <dags>"
+        if self._filter_text:
+            base = f"  <dags>  [dim]filter:[/dim] [yellow]/{self._filter_text}[/yellow]  [dim]<esc> clear[/dim]"
+        if is_live:
+            footer.update(base + "  [bold green][LIVE][/bold green]")
+        else:
+            footer.update(base)
+
     def _render_table(self):
         table = self.query_one("#dags-table", DataTable)
         table.clear()
@@ -157,6 +198,7 @@ class DagsScreen(Screen):
         if self._filter_text:
             dags = [d for d in dags if self._filter_text in d.dag_id.lower()]
 
+        watchlist = getattr(self.app, "_watchlist", [])
         count, total = len(dags), len(self._all_dags)
 
         # Border title: show filter inline when active
@@ -177,8 +219,9 @@ class DagsScreen(Screen):
 
         for dag in dags:
             is_paused = dag.is_paused
+            prefix = "★ " if dag.dag_id in watchlist else ""
             table.add_row(
-                dag.dag_id,
+                prefix + dag.dag_id,
                 ", ".join(dag.owners) if dag.owners else "",
                 dag.schedule_interval or dag.timetable_description or "",
                 "[dim]paused[/dim]" if is_paused else "[green]active[/green]",

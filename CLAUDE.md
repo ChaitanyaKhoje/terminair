@@ -31,7 +31,8 @@ airterm/
     dag_detail.py      # DAG run history + metrics panel (box plot, failure heatmap)
     dag_runs.py        # Run list
     dag_graph.py       # DAG dependency graph with critical path highlighting (★)
-    task_instances.py  # Task states for a run (queue latency, SLA miss columns)
+    dag_deps.py        # DAG dataset dependency impact view ("what breaks if this fails?")
+    task_instances.py  # Task states for a run (queue latency, SLA miss, log snippet)
     task_history.py    # Cross-run pass/fail pattern
     pools.py           # Pool utilization + starvation/contention alert
     health.py          # Scheduler / metadb health
@@ -40,6 +41,8 @@ airterm/
     event_log.py       # Airflow event log
     xcom_viewer.py     # XCom key/value inspector for a task instance
     sla_misses.py      # Running DAGs that have exceeded their P95 duration
+    resource_timeline.py # 24h pool slot usage timeline with top consumers
+    watchlist.py       # Bookmarked DAGs with status summary
   widgets/
     filter_input.py    # Inline /filter bar (lives inside each screen that needs it)
     help_overlay.py    # HelpScreen ModalScreen (currently unused — hints in header)
@@ -81,13 +84,18 @@ Each pushed Screen owns its own chrome: the header (3-line info + key hints), th
 | `4` | Health (scheduler / metadb) |
 | `5` | Import Errors |
 | `6` | SLA Miss Tracker |
+| `7` | Resource Timeline (24h pool usage) |
+| `0` | Watchlist (bookmarked DAGs) |
 | `Enter` | Drill into selected DAG → DAG Detail |
 | `g` | DAG Graph (from DAGs screen) |
 | `h` | Task History (from DAGs screen) |
+| `d` | Dependency Impact (from DAGs screen) |
 | `x` | XCom Viewer (from Task Instances screen) |
+| `l` | Log Snippet (from Task Instances screen) |
+| `b` | Bookmark/unbookmark DAG (from DAGs screen) |
+| `w` | Toggle auto-refresh (LIVE mode) |
 | `/` | Open filter bar |
 | `Esc` | Back / clear filter |
-| `r` | Refresh current screen |
 | `:` | Command palette |
 | `q` | Quit |
 
