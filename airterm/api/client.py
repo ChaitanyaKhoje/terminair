@@ -86,12 +86,15 @@ class AirflowClient:
 
     async def get_all_task_instances(
         self,
+        start_date_gte: Optional[str] = None,
         end_date_gte: Optional[str] = None,
         end_date_lte: Optional[str] = None,
         limit: int = 500,
     ) -> models.TaskInstanceList:
         """Fetch task instances across all DAGs (bulk endpoint)."""
         params: Dict[str, str] = {"limit": str(limit)}
+        if start_date_gte:
+            params["start_date_gte"] = start_date_gte
         if end_date_gte:
             params["end_date_gte"] = end_date_gte
         if end_date_lte:

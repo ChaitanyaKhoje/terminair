@@ -46,6 +46,7 @@ class DagsScreen(Screen):
         Binding("enter", "drill_in", "Drill In", priority=True),
         Binding("/", "show_filter", "Filter", priority=True),
         Binding("b", "bookmark", "Bookmark"),
+        Binding("w", "toggle_wrap", "Wrap"),
     ]
 
     def __init__(self):
@@ -53,6 +54,7 @@ class DagsScreen(Screen):
         self.id = "dags-screen"
         self._all_dags = []
         self._filter_text = ""
+        self._wrap_mode = False
 
     def compose(self) -> ComposeResult:
         yield Static("", id="dags-header")
@@ -92,24 +94,23 @@ class DagsScreen(Screen):
                 f" [dim]AirTerm:[/dim]    [green]v0.1.0[/green]",
             ]
             hint_lines = [
-                " [dim]<[/dim][cyan]1[/cyan][dim]>[/dim] DAGs  "
-                "[dim]<[/dim][cyan]2[/cyan][dim]>[/dim] Recent "
+                " [dim]<[/dim][cyan]2[/cyan][dim]>[/dim] Broken "
                 "[dim]<[/dim][cyan]3[/cyan][dim]>[/dim] Pools  "
                 "[dim]<[/dim][cyan]4[/cyan][dim]>[/dim] Health "
                 "[dim]<[/dim][cyan]5[/cyan][dim]>[/dim] Errors "
                 "[dim]<[/dim][cyan]6[/cyan][dim]>[/dim] SLA "
-                "[dim]<[/dim][cyan]7[/cyan][dim]>[/dim] Timeline",
+                "[dim]<[/dim][cyan]7[/cyan][dim]>[/dim] Timeline "
+                "[dim]<[/dim][cyan]0[/cyan][dim]>[/dim] Watchlist",
 
                 " [dim]<[/dim][cyan]enter[/cyan][dim]>[/dim] Drill  "
                 "[dim]<[/dim][cyan]esc[/cyan][dim]>[/dim] Back  "
                 "[dim]<[/dim][cyan]/[/cyan][dim]>[/dim] Filter  "
-                "[dim]<[/dim][cyan]w[/cyan][dim]>[/dim] Watch  "
+                "[dim]<[/dim][cyan]w[/cyan][dim]>[/dim] Wrap  "
                 "[dim]<[/dim][cyan]b[/cyan][dim]>[/dim] Bookmark",
 
                 " [dim]<[/dim][cyan]g[/cyan][dim]>[/dim] Graph  "
                 "[dim]<[/dim][cyan]h[/cyan][dim]>[/dim] History  "
                 "[dim]<[/dim][cyan]d[/cyan][dim]>[/dim] Deps  "
-                "[dim]<[/dim][cyan]0[/cyan][dim]>[/dim] Watchlist  "
                 "[dim]<[/dim][cyan]:[/cyan][dim]>[/dim] Cmd  "
                 "[dim]<[/dim][cyan]q[/cyan][dim]>[/dim] Quit",
             ]
@@ -121,6 +122,24 @@ class DagsScreen(Screen):
             self.query_one("#dags-header", Static).update("\n".join(lines))
         except Exception:
             pass
+
+    # ── wrap toggle ───────────────────────────────────────────────────────────
+
+    def action_toggle_wrap(self) -> None:
+        self._wrap_mode = not self._wrap_mode
+        table = self.query_one("#dags-table", DataTable)
+        saved_title = table.border_title
+        table.clear(columns=True)
+        if self._wrap_mode:
+            table.add_columns("DAG ID", "Schedule", "State", "Last Run")
+        else:
+            table.add_columns(
+                "DAG ID", "Owner", "Schedule", "State",
+                "Last Run", "Duration", "Next Run", "Active",
+            )
+        table.cursor_type = "row"
+        table.border_title = saved_title
+        self._render_table()
 
     # ── filter ────────────────────────────────────────────────────────────────
 
@@ -220,13 +239,22 @@ class DagsScreen(Screen):
         for dag in dags:
             is_paused = dag.is_paused
             prefix = "★ " if dag.dag_id in watchlist else ""
-            table.add_row(
-                prefix + dag.dag_id,
-                ", ".join(dag.owners) if dag.owners else "",
-                dag.schedule_interval or dag.timetable_description or "",
-                "[dim]paused[/dim]" if is_paused else "[green]active[/green]",
-                dag.next_dagrun or "",
-                "",
-                "",
-                "[dim]no[/dim]" if is_paused else "[green]yes[/green]",
-            )
+            state = "[dim]paused[/dim]" if is_paused else "[green]active[/green]"
+            if self._wrap_mode:
+                table.add_row(
+                    prefix + dag.dag_id,
+                    dag.schedule_interval or dag.timetable_description or "",
+                    state,
+                    dag.next_dagrun or "",
+                )
+            else:
+                table.add_row(
+                    prefix + dag.dag_id,
+                    ", ".join(dag.owners) if dag.owners else "",
+                    dag.schedule_interval or dag.timetable_description or "",
+                    state,
+                    dag.next_dagrun or "",
+                    "",
+                    "",
+                    "[dim]no[/dim]" if is_paused else "[green]yes[/green]",
+                )

@@ -10,17 +10,15 @@ class SlaMissScreen(Screen):
 
     CSS = """
     SlaMissScreen {
-        layout: grid;
-        grid-size: 1 2;
-        grid-rows: 1fr 4;
+        layout: vertical;
     }
 
     #sla-table {
-        height: 100%;
+        height: 1fr;
     }
 
     #sla-summary {
-        height: 100%;
+        height: 3;
         background: $panel;
         padding: 0 2;
     }
@@ -28,9 +26,6 @@ class SlaMissScreen(Screen):
 
     def compose(self) -> ComposeResult:
         yield DataTable(id="sla-table")
-        e = Static("No SLA breaches detected.", id="sla-empty")
-        e.display = False
-        yield e
         yield Static("", id="sla-summary")
 
     def on_mount(self) -> None:
@@ -48,29 +43,34 @@ class SlaMissScreen(Screen):
     def update_sla(self, breaches: list, total_running: int):
         table = self.query_one("#sla-table")
         table.clear()
-        empty = self.query_one("#sla-empty")
 
         if not breaches:
-            empty.display = True
             self.query_one("#sla-summary").update(
-                f"Monitoring {total_running} running DAG run(s). No SLA breaches."
+                f"[green]Monitoring {total_running} running DAG run(s). No SLA breaches.[/green]"
             )
             return
 
-        empty.display = False
         for b in breaches:
+            over_by = b["over_by"]
+            if over_by > 600:
+                over_color = "red"
+            elif over_by > 180:
+                over_color = "yellow"
+            else:
+                over_color = "white"
             table.add_row(
-                b["dag_id"],
+                f"[cyan]{b['dag_id']}[/cyan]",
                 b["run_id"][:30],
-                b["state"],
+                f"[yellow]{b['state']}[/yellow]",
                 _fmt_secs(b["running_for"]),
-                _fmt_secs(b["p95"]),
-                f"+{_fmt_secs(b['over_by'])}",
+                f"[dim]{_fmt_secs(b['p95'])}[/dim]",
+                f"[{over_color}]+{_fmt_secs(over_by)}[/{over_color}]",
                 b["started"][:16],
             )
 
         self.query_one("#sla-summary").update(
-            f"[bold red]{len(breaches)} SLA breach(es)[/bold red] out of {total_running} running run(s)."
+            f"[bold red]{len(breaches)} SLA breach(es)[/bold red] "
+            f"[dim]out of {total_running} running run(s)[/dim]"
         )
 
 
