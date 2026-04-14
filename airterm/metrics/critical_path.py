@@ -5,12 +5,12 @@ from typing import Optional
 
 
 class DAGNode:
-    def __init__(self, task_id: str, upstream: list[str] | None = None):
+    def __init__(self, task_id: str, upstream: Optional[list] = None):
         self.task_id = task_id
         self.upstream = upstream or []
 
 
-def build_dag_graph(tasks: list[dict]) -> dict[str, DAGNode]:
+def build_dag_graph(tasks: list) -> dict:
     graph = {}
     for task in tasks:
         task_id = task.get("task_id", "")
@@ -19,7 +19,7 @@ def build_dag_graph(tasks: list[dict]) -> dict[str, DAGNode]:
     return graph
 
 
-def find_critical_path(graph: dict[str, DAGNode]) -> list[str]:
+def find_critical_path(graph: dict) -> list:
     if not graph:
         return []
 
@@ -65,7 +65,7 @@ def find_critical_path(graph: dict[str, DAGNode]) -> list[str]:
     return all_paths[0] if all_paths else []
 
 
-def get_task_depth(graph: dict[str, DAGNode], task_id: str) -> int:
+def get_task_depth(graph: dict, task_id: str) -> int:
     node = graph.get(task_id)
     if not node:
         return 0
@@ -81,7 +81,7 @@ def get_task_depth(graph: dict[str, DAGNode], task_id: str) -> int:
     return max_depth + 1
 
 
-def topological_sort(graph: dict[str, DAGNode]) -> list[str]:
+def topological_sort(graph: dict) -> list:
     in_degree = {tid: 0 for tid in graph}
     for tid, node in graph.items():
         for upstream in node.upstream:

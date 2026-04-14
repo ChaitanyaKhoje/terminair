@@ -17,8 +17,10 @@ from airterm.screens.health import HealthScreen
 from airterm.screens.import_errors import ImportErrorsScreen
 from airterm.screens.pools import PoolsScreen
 from airterm.screens.recent_activity import RecentActivityScreen
+from airterm.screens.sla_misses import SlaMissScreen
 from airterm.screens.task_history import TaskHistoryScreen
 from airterm.screens.task_instances import TaskInstancesScreen
+from airterm.screens.xcom_viewer import XComViewerScreen
 from airterm.themes.dark import DARK_CSS
 from airterm.widgets.command_palette import CommandPalette, CommandExecutor
 
@@ -37,6 +39,8 @@ class AirTermApp(App):
         "import_errors": ImportErrorsScreen,
         "event_log": EventLogScreen,
         "task_history": TaskHistoryScreen,
+        "xcom_viewer": XComViewerScreen,
+        "sla_misses": SlaMissScreen,
     }
     DEFAULT_AUTO_FOCUS = ""
 
@@ -53,6 +57,8 @@ class AirTermApp(App):
         Binding("5", "switch_errors", "Errors"),
         Binding("h", "view_task_history", "Task History"),
         Binding("g", "view_graph", "Graph"),
+        Binding("6", "switch_sla", "SLA"),
+        Binding("x", "view_xcoms", "XComs"),
     ]
 
     def __init__(self, config: Config, **kwargs):
@@ -135,6 +141,92 @@ class AirTermApp(App):
         self.push_screen("import_errors")
         self._load_import_errors()
 
+    def action_switch_sla(self):
+        self.push_screen("sla_misses")
+        from textual.app import asyncio
+        asyncio.create_task(self._load_sla_misses())
+
+    def action_view_xcoms(self):
+        """Open XCom viewer for the selected task in the current task instances screen."""
+        try:
+            table = self.screen.query_one("#task-instances-table")
+        except Exception:
+            return
+        if table is None or table.cursor_row is None:
+            return
+        # Get context from the task instances screen
+        dag_id, run_id = self.screen.get_context()
+        if not dag_id or not run_id:
+            return
+        try:
+            row = table.get_row_at(table.cursor_row)
+            task_id = row[0]
+        except Exception:
+            return
+        self.push_screen("xcom_viewer")
+        from textual.app import asyncio
+        asyncio.create_task(self._load_xcoms(dag_id, run_id, task_id))
+
+    async def _load_sla_misses(self):
+        from datetime import datetime, timezone
+        try:
+            client = self._client
+            if not client:
+                return
+            # Get all currently running DAG runs
+            running_result = await client.get_all_dag_runs(limit=100)
+            running = [r for r in running_result.dag_runs if r.state and r.state.value == "running"]
+
+            if not running:
+                self.screen.update_sla([], 0)
+                return
+
+            # Collect historical durations per dag_id to compute P95
+            dag_durations: dict[str, list[float]] = {}
+            for run in running_result.dag_runs:
+                if run.start_date and run.end_date:
+                    dag_durations.setdefault(run.dag_id, []).append(
+                        (run.end_date - run.start_date).total_seconds()
+                    )
+
+            now = datetime.now(timezone.utc)
+            breaches = []
+            for run in running:
+                if not run.start_date:
+                    continue
+                running_for = (now - run.start_date).total_seconds()
+                durations = dag_durations.get(run.dag_id, [])
+                if len(durations) < 3:
+                    continue
+                sorted_d = sorted(durations)
+                p95 = sorted_d[int(len(sorted_d) * 0.95)]
+                if running_for > p95:
+                    breaches.append({
+                        "dag_id": run.dag_id,
+                        "run_id": run.dag_run_id,
+                        "state": run.state.value,
+                        "running_for": running_for,
+                        "p95": p95,
+                        "over_by": running_for - p95,
+                        "started": str(run.start_date)[:19],
+                    })
+
+            self.screen.update_sla(breaches, len(running))
+        except Exception:
+            pass
+
+    async def _load_xcoms(self, dag_id: str, run_id: str, task_id: str):
+        try:
+            client = self._client
+            if not client:
+                return
+            screen = self.screen
+            screen.set_context(dag_id, run_id, task_id)
+            result = await client.get_xcom_entries(dag_id, run_id, task_id)
+            screen.update_xcoms(result.xcom_entries)
+        except Exception:
+            pass
+
     async def _load_recent_activity(self):
         try:
             client = self._client
@@ -173,24 +265,7 @@ class AirTermApp(App):
             if not client:
                 return
             pools_result = await client.get_pools()
-            screen = self.screen.query_one("#pools-table")
-            table = self.screen.query_one("#pools-table")
-            table.clear()
-            for pool in pools_result.pools:
-                util = 0
-                if pool.slots > 0:
-                    util = (pool.used_slots / pool.slots) * 100
-                    bar = "█" * int(util / 10) + "░" * (10 - int(util / 10))
-                else:
-                    bar = ""
-                table.add_row(
-                    pool.name,
-                    str(pool.used_slots),
-                    str(pool.queued_slots),
-                    str(pool.slots),
-                    f"{util:.0f}% {bar}",
-                    str(pool.running_slots),
-                )
+            self.screen.update_pools(pools_result.pools)
         except Exception:
             pass
 
@@ -338,38 +413,57 @@ class AirTermApp(App):
                 asyncio.create_task(self._load_dag_detail(dag.dag_id))
 
     async def _load_dag_detail(self, dag_id: str):
+        from airterm.metrics.aggregations import (
+            compute_duration_stats,
+            compute_streak,
+            compute_success_rate,
+            find_last_failure,
+        )
+        from airterm.metrics.sparkline import compute_sparkline
         try:
             client = self._client
             if not client:
                 return
             runs_result = await client.get_dag_runs(dag_id, limit=50)
             dag_info = await client.get_dag(dag_id)
+            runs = runs_result.dag_runs
 
-            screen = self.screen.query_one("#run-table")
-            screen.clear()
+            durations = [
+                (r.end_date - r.start_date).total_seconds()
+                for r in runs if r.start_date and r.end_date
+            ]
+            stats = compute_duration_stats(runs)
+            avg_duration = stats.get("avg", 0.0)
 
-            for run in runs_result.dag_runs:
-                duration = ""
-                if run.start_date and run.end_date:
-                    delta = run.end_date - run.start_date
-                    seconds = delta.total_seconds()
-                    duration = f"{int(seconds // 60)}m {int(seconds % 60)}s"
+            screen = self.screen
+            screen.update_runs(runs, avg_duration)
 
-                error = ""
-                if run.state.value == "failed":
-                    error = run.dag_run_id[:30]
+            streak = compute_streak(runs)
+            success_rate = compute_success_rate(runs) * 100
+            success_count = sum(1 for r in runs if r.state and r.state.value == "success")
+            failure_count = sum(1 for r in runs if r.state and r.state.value == "failed")
+            last_failure = find_last_failure(runs)
+            last_failure_str = str(last_failure.execution_date)[:16] if last_failure else ""
+            sparkline = compute_sparkline(durations)
+            schedule = dag_info.schedule_interval or dag_info.timetable_description or "n/a"
+            owner = ", ".join(dag_info.owners) if dag_info.owners else "n/a"
 
-                screen.add_row(
-                    run.dag_run_id[:30],
-                    run.state.value if run.state else "",
-                    run.run_type,
-                    str(run.execution_date)[:16],
-                    duration,
-                    "",
-                    error,
-                )
-
-            self.query_one("#breadcrumb").set_path(f"DAGs > {dag_id}")
+            screen.update_metrics(
+                dag_id=dag_id,
+                schedule=schedule,
+                owner=owner,
+                total_runs=len(runs),
+                success_count=success_count,
+                failure_count=failure_count,
+                success_rate=success_rate,
+                avg_duration=avg_duration,
+                p95_duration=stats.get("p95", 0.0),
+                streak_type=streak.get("type", ""),
+                streak_count=streak.get("count", 0),
+                sparkline=sparkline,
+                last_failure=last_failure_str,
+                runs=runs,
+            )
         except Exception:
             pass
 

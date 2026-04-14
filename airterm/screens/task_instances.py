@@ -38,10 +38,11 @@ class TaskInstancesScreen(Screen):
             "State",
             "Operator",
             "Start",
+            "Queue Latency",
             "Duration",
             "Try",
             "Pool",
-            "Error",
+            "SLA",
         )
 
     def set_context(self, dag_id: str, run_id: str):
@@ -64,16 +65,22 @@ class TaskInstancesScreen(Screen):
         for task in sorted_tasks:
             duration = f"{task.duration:.1f}s" if task.duration else "running"
             trys = f"{task.try_number}/{task.max_tries}"
-            error = task.state.value if task.state == "failed" else ""
+            sla = "⚠ SLA" if task.sla_miss else ""
+            queue_latency = ""
+            if task.queued_when and task.start_date:
+                ql_secs = (task.start_date - task.queued_when).total_seconds()
+                if ql_secs >= 0:
+                    queue_latency = f"{ql_secs:.0f}s"
             table.add_row(
                 task.task_id,
                 task.state.value if task.state else "",
                 task.operator,
                 str(task.start_date)[:19] if task.start_date else "",
+                queue_latency,
                 duration,
                 trys,
                 task.pool,
-                error,
+                sla,
             )
 
     def _sort_by_state_first(self, tasks: list) -> list:

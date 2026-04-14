@@ -136,6 +136,54 @@ class AirflowClient:
         resp.raise_for_status()
         return models.EventLogList(**resp.json())
 
+    async def get_xcom_entries(
+        self,
+        dag_id: str,
+        run_id: str,
+        task_id: str,
+        limit: int = 20,
+    ) -> models.XComEntryList:
+        resp = await self._client.get(
+            f"/api/v1/dags/{dag_id}/dagRuns/{run_id}/taskInstances/{task_id}/xcomEntries",
+            params={"limit": limit},
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        entries = []
+        for e in data.get("xcom_entries", []):
+            entries.append(models.XComEntry(**e))
+        return models.XComEntryList(
+            xcom_entries=entries,
+            total_entries=data.get("total_entries", len(entries)),
+        )
+
+    async def get_xcom_value(
+        self,
+        dag_id: str,
+        run_id: str,
+        task_id: str,
+        xcom_key: str,
+    ) -> str:
+        resp = await self._client.get(
+            f"/api/v1/dags/{dag_id}/dagRuns/{run_id}/taskInstances/{task_id}/xcomEntries/{xcom_key}",
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        return str(data.get("value", ""))
+
+    async def get_sla_misses(self, dag_id: str) -> models.SlaMissList:
+        resp = await self._client.get(
+            "/api/v1/dagWarnings",
+            params={"dag_id": dag_id, "warning_type": "task_not_finished"},
+        )
+        # SLA endpoint may not exist on all versions — return empty on 404
+        if resp.status_code == 404:
+            return models.SlaMissList()
+        resp.raise_for_status()
+        data = resp.json()
+        items = [models.SlaMissItem(**i) for i in data.get("dag_warnings", [])]
+        return models.SlaMissList(sla_miss=items, total_entries=len(items))
+
     async def get_datasets(self) -> models.DatasetList:
         resp = await self._client.get("/api/v1/datasets")
         resp.raise_for_status()

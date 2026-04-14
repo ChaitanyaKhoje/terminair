@@ -108,6 +108,16 @@ class DagRunList(BaseModel):
     total_entries: Optional[int] = None
 
 
+class SlaMiss(BaseModel):
+    task_id: str
+    dag_id: str
+    execution_date: Optional[datetime] = None
+    email_sent: bool = False
+    timestamp: Optional[datetime] = None
+    description: Optional[str] = None
+    notification_sent: bool = False
+
+
 class TaskInstance(BaseModel):
     task_id: str
     dag_id: str
@@ -115,6 +125,7 @@ class TaskInstance(BaseModel):
     execution_date: datetime
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
+    queued_when: Optional[datetime] = None
     duration: Optional[float] = None
     state: Optional[TaskState] = None
     try_number: int
@@ -123,6 +134,7 @@ class TaskInstance(BaseModel):
     queue: Optional[str] = None
     pool: str
     priority_weight: int
+    sla_miss: Optional[SlaMiss] = None
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -202,6 +214,37 @@ class DAGTask(BaseModel):
 
 class DAGTaskList(BaseModel):
     tasks: list[DAGTask] = []
+    total_entries: int = 0
+
+
+class XComEntry(BaseModel):
+    key: str
+    task_id: str
+    dag_id: str
+    dag_run_id: str = Field(alias="run_id", default="")
+    execution_date: Optional[datetime] = None
+    timestamp: Optional[datetime] = None
+    value: Optional[str] = None
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class XComEntryList(BaseModel):
+    xcom_entries: list[XComEntry] = []
+    total_entries: int = 0
+
+
+class SlaMissItem(BaseModel):
+    dag_id: str
+    task_id: str
+    execution_date: Optional[datetime] = None
+    email_sent: bool = False
+    timestamp: Optional[datetime] = None
+    description: Optional[str] = None
+
+
+class SlaMissList(BaseModel):
+    sla_miss: list[SlaMissItem] = []
     total_entries: int = 0
 
 
