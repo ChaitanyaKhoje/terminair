@@ -127,19 +127,23 @@ class AirTermApp(App):
 
     def action_switch_recent(self):
         self.push_screen("recent_activity")
-        self._load_recent_activity()
+        from textual.app import asyncio
+        asyncio.create_task(self._load_recent_activity())
 
     def action_switch_pools(self):
         self.push_screen("pools")
-        self._load_pools()
+        from textual.app import asyncio
+        asyncio.create_task(self._load_pools())
 
     def action_switch_health(self):
         self.push_screen("health")
-        self._load_health()
+        from textual.app import asyncio
+        asyncio.create_task(self._load_health())
 
     def action_switch_errors(self):
         self.push_screen("import_errors")
-        self._load_import_errors()
+        from textual.app import asyncio
+        asyncio.create_task(self._load_import_errors())
 
     def action_switch_sla(self):
         self.push_screen("sla_misses")
@@ -275,9 +279,7 @@ class AirTermApp(App):
             if not client:
                 return
             health_result = await client.get_health()
-            screen = self.screen.query_one("#health-content")
-            if hasattr(screen, "update"):
-                screen.update(health_result)
+            self.screen.update_health(health_result)
         except Exception:
             pass
 
