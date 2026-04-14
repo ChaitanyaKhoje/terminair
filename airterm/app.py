@@ -27,6 +27,7 @@ from airterm.screens.watchlist import WatchlistScreen
 from airterm.screens.xcom_viewer import XComViewerScreen
 from airterm.themes.dark import DARK_CSS
 from airterm.widgets.command_palette import CommandPalette, CommandExecutor
+from airterm.widgets.flash import FlashBar
 
 
 class AirTermApp(App):
@@ -85,6 +86,21 @@ class AirTermApp(App):
 
     def compose(self) -> ComposeResult:
         yield CommandPalette()
+        yield FlashBar()
+
+    def _flash_error(self, text: str):
+        """Show an error message in the flash bar."""
+        try:
+            self.query_one(FlashBar).flash_error(text)
+        except Exception:
+            pass
+
+    def _flash_warn(self, text: str):
+        """Show a warning message in the flash bar."""
+        try:
+            self.query_one(FlashBar).flash_warn(text)
+        except Exception:
+            pass
 
     def on_mount(self) -> None:
         _asyncio.create_task(self._init_app())
@@ -170,8 +186,8 @@ class AirTermApp(App):
                 break
             try:
                 await self._refresh_current_screen()
-            except Exception:
-                pass
+            except Exception as e:
+                self._flash_error(f"Refresh failed: {str(e)[:80]}")
 
     async def _refresh_current_screen(self):
         """Re-load data for whatever screen is currently active."""
@@ -205,8 +221,8 @@ class AirTermApp(App):
             result = await client.get_dags(limit=100)
             self._cached_dags = result.dags
             self.screen.update_dags(result.dags)
-        except Exception:
-            pass
+        except Exception as e:
+            self._flash_error(f"DAGs load failed: {str(e)[:80]}")
 
     # ── Screen switching ─────────────────────────────────────────────────────
 
@@ -364,8 +380,8 @@ class AirTermApp(App):
                     duration,
                     "",
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            self._flash_error(f"Recent activity load failed: {str(e)[:80]}")
 
     async def _load_pools(self):
         try:
@@ -374,8 +390,8 @@ class AirTermApp(App):
                 return
             pools_result = await client.get_pools()
             self.screen.update_pools(pools_result.pools)
-        except Exception:
-            pass
+        except Exception as e:
+            self._flash_error(f"Pools load failed: {str(e)[:80]}")
 
     async def _load_health(self):
         try:
@@ -384,8 +400,8 @@ class AirTermApp(App):
                 return
             health_result = await client.get_health()
             self.screen.update_health(health_result)
-        except Exception:
-            pass
+        except Exception as e:
+            self._flash_error(f"Health load failed: {str(e)[:80]}")
 
     async def _load_import_errors(self):
         try:
@@ -401,8 +417,8 @@ class AirTermApp(App):
                     error.stack_trace[:50] if error.stack_trace else "",
                     str(error.timestamp)[:19] if error.timestamp else "",
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            self._flash_error(f"Import errors load failed: {str(e)[:80]}")
 
     async def _load_event_logs(self):
         try:
@@ -419,8 +435,8 @@ class AirTermApp(App):
                     log.event_type if log.event_type else "",
                     log.owner if log.owner else "",
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            self._flash_error(f"Event logs load failed: {str(e)[:80]}")
 
     async def _load_sla_misses(self):
         from datetime import datetime, timezone
@@ -465,8 +481,8 @@ class AirTermApp(App):
                     })
 
             self.screen.update_sla(breaches, len(running))
-        except Exception:
-            pass
+        except Exception as e:
+            self._flash_error(f"SLA check failed: {str(e)[:80]}")
 
     async def _load_xcoms(self, dag_id: str, run_id: str, task_id: str):
         try:
@@ -477,8 +493,8 @@ class AirTermApp(App):
             screen.set_context(dag_id, run_id, task_id)
             result = await client.get_xcom_entries(dag_id, run_id, task_id)
             screen.update_xcoms(result.xcom_entries)
-        except Exception:
-            pass
+        except Exception as e:
+            self._flash_error(f"XCom load failed: {str(e)[:80]}")
 
     async def _load_dag_graph(self, dag_id: str):
         try:
@@ -492,8 +508,8 @@ class AirTermApp(App):
                 for downstream in task.downstream_task_ids:
                     edges.append((task.task_id, downstream))
             self.screen.render_graph(tasks, edges)
-        except Exception:
-            pass
+        except Exception as e:
+            self._flash_error(f"Graph load failed: {str(e)[:80]}")
 
     async def _load_task_history(self, dag_id: str):
         try:
@@ -528,8 +544,8 @@ class AirTermApp(App):
             screen = self.screen
             screen.set_context("(all tasks)", dag_id)
             screen.update_history(all_entries, failure_rate, avg_duration, total_retries, pattern)
-        except Exception:
-            pass
+        except Exception as e:
+            self._flash_error(f"Task history load failed: {str(e)[:80]}")
 
     async def _load_dag_detail(self, dag_id: str):
         from airterm.metrics.aggregations import (
@@ -583,8 +599,8 @@ class AirTermApp(App):
                 last_failure=last_failure_str,
                 runs=runs,
             )
-        except Exception:
-            pass
+        except Exception as e:
+            self._flash_error(f"DAG detail load failed: {str(e)[:80]}")
 
     async def _load_dag_deps(self, dag_id: str):
         """Load dataset dependency information for a DAG."""
@@ -645,8 +661,8 @@ class AirTermApp(App):
                 })
 
             screen.update_deps(deps, dag_id)
-        except Exception:
-            pass
+        except Exception as e:
+            self._flash_error(f"Dependencies load failed: {str(e)[:80]}")
 
     async def _load_task_log(self, dag_id: str, run_id: str, task_id: str, try_number: int):
         """Fetch task log and display last 30 lines in task instances screen."""
@@ -722,8 +738,8 @@ class AirTermApp(App):
             top_consumers = sorted(consumers.values(), key=lambda x: x["slot_minutes"], reverse=True)
 
             self.screen.update_timeline(pool_hours, pool_capacity, top_consumers)
-        except Exception:
-            pass
+        except Exception as e:
+            self._flash_error(f"Timeline load failed: {str(e)[:80]}")
 
     async def _load_watchlist(self):
         """Load status for all bookmarked DAGs."""
@@ -779,8 +795,8 @@ class AirTermApp(App):
                     entries.append({"dag_id": dag_id, "state": "error"})
 
             self.screen.update_watchlist(entries)
-        except Exception:
-            pass
+        except Exception as e:
+            self._flash_error(f"Watchlist load failed: {str(e)[:80]}")
 
     # ── Navigation ───────────────────────────────────────────────────────────
 
