@@ -53,12 +53,74 @@ python3 -m airterm --url http://localhost:8080 --user admin --password admin
 **Requires a running Airflow instance.**
 
 ```bash
-# Basic auth
-python3 -m airterm --url http://localhost:8080 --user admin --password admin
+# Recommended: set password via env var
+export AIRTERM_PASSWORD=admin
+python3 -m airterm --url http://localhost:8080 --user admin
 
 # Named connection from config
 python3 -m airterm --ctx production
 ```
+
+## Authentication
+
+AirTerm supports three authentication methods:
+
+### Basic Auth (username/password)
+
+```bash
+# Option 1: Environment variable (recommended — avoids shell history)
+export AIRTERM_PASSWORD=admin
+python3 -m airterm --url http://localhost:8080 --user admin
+
+# Option 2: Interactive prompt (password hidden)
+python3 -m airterm --url http://localhost:8080 --user admin
+# → Password: ********
+
+# Option 3: CLI argument (visible in process list — use only for local dev)
+python3 -m airterm --url http://localhost:8080 --user admin --password admin
+```
+
+### Token Auth
+
+Use a config file with an environment variable reference for the token:
+
+```yaml
+# ~/.airterm/config.yaml
+connections:
+  production:
+    url: https://airflow.company.com
+    auth:
+      type: token
+      token: ${AIRFLOW_PROD_TOKEN}
+```
+
+Then:
+```bash
+export AIRFLOW_PROD_TOKEN=your-bearer-token
+python3 -m airterm --ctx production
+```
+
+### Airflow API Setup
+
+AirTerm requires the Airflow REST API to be enabled. For Airflow 2.x:
+
+1. Ensure `api` is in your `airflow.cfg`:
+   ```ini
+   [api]
+   auth_backends = airflow.api.auth.backend.basic_auth
+   ```
+
+2. For **MWAA** (AWS Managed Airflow): Use a web login token — AirTerm's token auth mode works with the session token from the MWAA CLI.
+
+3. For **Cloud Composer** (GCP): Use `gcloud` to generate an access token:
+   ```bash
+   export AIRFLOW_PROD_TOKEN=$(gcloud auth print-access-token)
+   python3 -m airterm --ctx production
+   ```
+
+4. For **Astronomer**: Use the Astronomer API token from the Astro CLI.
+
+> **Security note:** Avoid passing passwords as CLI arguments in shared environments — they are visible in `ps` output and shell history. Use `AIRTERM_PASSWORD` or interactive prompt instead.
 
 ## Layout
 
