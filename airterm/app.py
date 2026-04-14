@@ -231,44 +231,44 @@ class AirTermApp(App):
         if self._auto_refresh_enabled:
             self._stop_watch()
 
+    def _switch_to(self, screen_name: str):
+        """Pop to DagsScreen floor, then push the target screen."""
+        self._cancel_watch_on_switch()
+        while len(self.screen_stack) > 2:
+            self.pop_screen()
+        self.push_screen(screen_name)
+
     def action_switch_dags(self):
         self._cancel_watch_on_switch()
         while len(self.screen_stack) > 2:
             self.pop_screen()
 
     def action_switch_recent(self):
-        self._cancel_watch_on_switch()
-        self.push_screen("recent_activity")
+        self._switch_to("recent_activity")
         _asyncio.create_task(self._load_recent_activity())
 
     def action_switch_pools(self):
-        self._cancel_watch_on_switch()
-        self.push_screen("pools")
+        self._switch_to("pools")
         _asyncio.create_task(self._load_pools())
 
     def action_switch_health(self):
-        self._cancel_watch_on_switch()
-        self.push_screen("health")
+        self._switch_to("health")
         _asyncio.create_task(self._load_health())
 
     def action_switch_errors(self):
-        self._cancel_watch_on_switch()
-        self.push_screen("import_errors")
+        self._switch_to("import_errors")
         _asyncio.create_task(self._load_import_errors())
 
     def action_switch_sla(self):
-        self._cancel_watch_on_switch()
-        self.push_screen("sla_misses")
+        self._switch_to("sla_misses")
         _asyncio.create_task(self._load_sla_misses())
 
     def action_switch_timeline(self):
-        self._cancel_watch_on_switch()
-        self.push_screen("resource_timeline")
+        self._switch_to("resource_timeline")
         _asyncio.create_task(self._load_resource_timeline())
 
     def action_switch_watchlist(self):
-        self._cancel_watch_on_switch()
-        self.push_screen("watchlist")
+        self._switch_to("watchlist")
         _asyncio.create_task(self._load_watchlist())
 
     # ── DAG-context actions (g, h, d — require dags-table selection) ─────────
