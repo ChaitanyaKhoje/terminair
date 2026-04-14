@@ -183,7 +183,7 @@ class AirTermApp(App):
             screen = self.screen.query_one("#pools-table")
             table = self.screen.query_one("#pools-table")
             table.clear()
-for pool in pools_result.pools:
+            for pool in pools_result.pools:
                 util = 0
                 if pool.slots > 0:
                     util = (pool.used_slots / pool.slots) * 100
