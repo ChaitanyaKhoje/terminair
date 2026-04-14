@@ -1,10 +1,9 @@
 """Background poller for Airflow API data."""
 
 import asyncio
-from typing import Optional
+from typing import Callable, Optional
 
 from airterm.api.client import AirflowClient
-from airterm.state import get_state
 
 
 class Poller:
@@ -12,7 +11,6 @@ class Poller:
 
     def __init__(self, client: AirflowClient):
         self._client = client
-        self._state = get_state()
         self._tasks: dict[str, asyncio.Task] = {}
         self._running = False
 
@@ -20,12 +18,13 @@ class Poller:
         self,
         resource: str,
         interval: float,
+        callback: Optional[Callable] = None,
         **params,
     ):
         """Start polling a resource. Replaces existing poll for same resource."""
         await self.stop_polling(resource)
         self._running = True
-        task = asyncio.create_task(self._poll_loop(resource, interval, **params))
+        task = asyncio.create_task(self._poll_loop(resource, interval, callback, **params))
         self._tasks[resource] = task
 
     async def stop_polling(self, resource: str):
@@ -50,45 +49,26 @@ class Poller:
         self,
         resource: str,
         interval: float,
+        callback: Optional[Callable],
         **params,
     ):
-        in_flight = False
         while self._running:
-            if not in_flight:
-                in_flight = True
-                try:
-                    await self._poll_once(resource, **params)
-                except Exception as e:
-                    self._state.error_message = str(e)
-                in_flight = False
+            try:
+                data = await self._poll_once(resource, **params)
+                if callback and data is not None:
+                    callback(data)
+            except Exception:
+                pass  # Flash will be handled by the app-level refresh
             await asyncio.sleep(interval)
 
     async def _poll_once(self, resource: str, **params):
         if resource == "dags":
-            result = await self._client.get_dags(**params)
-            self._state.dags = result.dags
-        elif resource == "dag_runs":
-            dag_id = params.get("dag_id")
-            if dag_id:
-                result = await self._client.get_dag_runs(dag_id, **params)
-                runs = dict(self._state.dag_runs)
-                runs[dag_id] = result.dag_runs
-                self._state.dag_runs = runs
-        elif resource == "task_instances":
-            dag_id = params.get("dag_id")
-            run_id = params.get("run_id")
-            if dag_id and run_id:
-                result = await self._client.get_task_instances(dag_id, run_id)
-                tis = dict(self._state.task_instances)
-                key = f"{dag_id}:{run_id}"
-                tis[key] = result.task_instances
-                self._state.task_instances = tis
+            return await self._client.get_dags(**params)
         elif resource == "pools":
-            result = await self._client.get_pools()
-            self._state.pools = result.pools
+            return await self._client.get_pools()
         elif resource == "health":
-            result = await self._client.get_health()
-            self._state.health = result
+            return await self._client.get_health()
+        return None
 
 
 _default_poller: Optional[Poller] = None

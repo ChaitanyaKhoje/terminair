@@ -1,5 +1,6 @@
 """CLI entrypoint for AirTerm."""
 
+import os
 from pathlib import Path
 
 import click
@@ -11,7 +12,7 @@ from airterm.config import CLIConfig, Config, merge_configs
 @click.command()
 @click.option("--url", help="Airflow API URL")
 @click.option("--user", help="Username for basic auth")
-@click.option("--password", help="Password for basic auth")
+@click.option("--password", help="Password for basic auth (prefer AIRTERM_PASSWORD env var)")
 @click.option("--ctx", help="Connection context name")
 @click.option("--config", type=click.Path(path_type=Path), help="Config file path")
 @click.option("--dag", help="Jump to specific DAG on startup")
@@ -31,6 +32,12 @@ def main(
     if version:
         click.echo("airterm version 0.1.0")
         return
+
+    # Resolve password: CLI arg > env var > interactive prompt
+    if url and user and not password:
+        password = os.environ.get("AIRTERM_PASSWORD")
+        if not password:
+            password = click.prompt("Password", hide_input=True)
 
     cli_config = CLIConfig(
         url=url,

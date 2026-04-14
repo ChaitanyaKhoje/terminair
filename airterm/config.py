@@ -36,10 +36,6 @@ class Settings(BaseModel):
     timestamp_format: str = "relative"
     watchlist: list = []
 
-    @classmethod
-    def from_env(cls) -> "Settings":
-        api_token = os.environ.get("AIRFLOW_API_TOKEN")
-        return cls(api_token=api_token)
 
 
 class Config(BaseModel):
@@ -105,9 +101,9 @@ def merge_configs(file_config: Config, cli_config: CLIConfig) -> Config:
                 ),
             )
         else:
-            connections[conn_name] = Connection(
-                url=cli_config.url,
-                auth=ConnectionAuthToken(type="token", token=""),
+            raise ValueError(
+                "URL provided without credentials. Use --user/--password, "
+                "set AIRTERM_PASSWORD env var, or configure a connection in config.yaml."
             )
 
     active_conn = cli_config.ctx or file_config.settings.default_connection

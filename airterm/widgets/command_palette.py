@@ -1,7 +1,5 @@
 """Command palette widget."""
 
-from typing import Optional
-
 from textual.app import ComposeResult
 from textual.widget import Widget
 from textual.widgets import Input
@@ -64,6 +62,13 @@ class CommandExecutor:
         "theme": "switch_theme",
     }
 
+    # Commands that require exactly one argument
+    _REQUIRES_ARG = {"dag", "ctx", "theme"}
+    # Commands that take no arguments
+    _NO_ARGS = {"pools", "health", "errors", "recent"}
+    # Commands that take optional/variable args
+    _OPTIONAL_ARGS = {"filter", "export", "set"}
+
     @classmethod
     def parse(cls, cmd: str) -> tuple:
         parts = cmd.strip().split()
@@ -72,9 +77,25 @@ class CommandExecutor:
         return parts[0], parts[1:]
 
     @classmethod
+    def validate(cls, cmd_name: str, args: list) -> bool:
+        """Validate command name and argument count."""
+        if cmd_name not in cls.COMMANDS:
+            return False
+        if cmd_name in cls._REQUIRES_ARG and len(args) != 1:
+            return False
+        if cmd_name in cls._NO_ARGS and len(args) != 0:
+            return False
+        return True
+
+    @classmethod
     def execute(cls, app, cmd: str):
         cmd_name, args = cls.parse(cmd)
-        if cmd_name not in cls.COMMANDS:
+        if not cls.validate(cmd_name, args):
+            try:
+                from airterm.widgets.flash import FlashBar
+                app.query_one(FlashBar).flash_warn(f"Invalid command: {cmd}")
+            except Exception:
+                pass
             return False
 
         action = cls.COMMANDS[cmd_name]

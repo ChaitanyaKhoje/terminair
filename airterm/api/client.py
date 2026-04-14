@@ -84,6 +84,25 @@ class AirflowClient:
         resp.raise_for_status()
         return models.TaskInstanceList(**resp.json())
 
+    async def get_all_task_instances(
+        self,
+        end_date_gte: Optional[str] = None,
+        end_date_lte: Optional[str] = None,
+        limit: int = 500,
+    ) -> models.TaskInstanceList:
+        """Fetch task instances across all DAGs (bulk endpoint)."""
+        params: Dict[str, str] = {"limit": str(limit)}
+        if end_date_gte:
+            params["end_date_gte"] = end_date_gte
+        if end_date_lte:
+            params["end_date_lte"] = end_date_lte
+        resp = await self._client.get(
+            "/api/v1/dags/-/dagRuns/-/taskInstances",
+            params=params,
+        )
+        resp.raise_for_status()
+        return models.TaskInstanceList(**resp.json())
+
     async def get_task_log(
         self,
         dag_id: str,

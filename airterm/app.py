@@ -12,7 +12,6 @@ from airterm.config import Config
 from airterm.screens.dag_deps import DagDepsScreen
 from airterm.screens.dag_detail import DagDetailScreen
 from airterm.screens.dag_graph import DAGGraphScreen
-from airterm.screens.dag_runs import DagRunsScreen
 from airterm.screens.dags import DagsScreen
 from airterm.screens.event_log import EventLogScreen
 from airterm.screens.health import HealthScreen
@@ -27,6 +26,7 @@ from airterm.screens.watchlist import WatchlistScreen
 from airterm.screens.xcom_viewer import XComViewerScreen
 from airterm.themes.dark import DARK_CSS
 from airterm.widgets.command_palette import CommandPalette, CommandExecutor
+from airterm.widgets.flash import FlashBar
 
 
 class AirTermApp(App):
@@ -50,6 +50,19 @@ class AirTermApp(App):
         "watchlist": WatchlistScreen,
     }
     DEFAULT_AUTO_FOCUS = ""
+
+    # Per-screen refresh intervals (seconds)
+    _SCREEN_REFRESH_INTERVALS = {
+        "DagsScreen": 5,
+        "RecentActivityScreen": 10,
+        "PoolsScreen": 30,
+        "HealthScreen": 60,
+        "ImportErrorsScreen": 60,
+        "SlaMissScreen": 30,
+        "DagDetailScreen": 5,
+        "ResourceTimelineScreen": 30,
+        "WatchlistScreen": 30,
+    }
 
     BINDINGS = [
         Binding("ctrl+c", "quit", "Quit", priority=True),
@@ -80,11 +93,27 @@ class AirTermApp(App):
         self._watchlist: list[str] = list(config.settings.watchlist)
         self._auto_refresh_task: Optional[_asyncio.Task] = None
         self._auto_refresh_enabled = False
+        self._refresh_in_flight = False
         # Tracks the context for the active screen so auto-refresh can reload
         self._active_screen_context: Optional[str] = None
 
     def compose(self) -> ComposeResult:
         yield CommandPalette()
+        yield FlashBar()
+
+    def _flash_error(self, text: str):
+        """Show an error message in the flash bar."""
+        try:
+            self.query_one(FlashBar).flash_error(text)
+        except Exception:
+            pass
+
+    def _flash_warn(self, text: str):
+        """Show a warning message in the flash bar."""
+        try:
+            self.query_one(FlashBar).flash_warn(text)
+        except Exception:
+            pass
 
     def on_mount(self) -> None:
         _asyncio.create_task(self._init_app())
@@ -163,15 +192,23 @@ class AirTermApp(App):
             pass
 
     async def _watch_loop(self):
-        interval = self._config.settings.refresh_interval
         while self._auto_refresh_enabled:
+            screen_id = self.screen.__class__.__name__
+            interval = self._SCREEN_REFRESH_INTERVALS.get(
+                screen_id, self._config.settings.refresh_interval
+            )
             await _asyncio.sleep(interval)
             if not self._auto_refresh_enabled:
                 break
+            if self._refresh_in_flight:
+                continue
+            self._refresh_in_flight = True
             try:
                 await self._refresh_current_screen()
-            except Exception:
-                pass
+            except Exception as e:
+                self._flash_error(f"Refresh failed: {str(e)[:80]}")
+            finally:
+                self._refresh_in_flight = False
 
     async def _refresh_current_screen(self):
         """Re-load data for whatever screen is currently active."""
@@ -205,8 +242,8 @@ class AirTermApp(App):
             result = await client.get_dags(limit=100)
             self._cached_dags = result.dags
             self.screen.update_dags(result.dags)
-        except Exception:
-            pass
+        except Exception as e:
+            self._flash_error(f"DAGs load failed: {str(e)[:80]}")
 
     # ── Screen switching ─────────────────────────────────────────────────────
 
@@ -215,44 +252,44 @@ class AirTermApp(App):
         if self._auto_refresh_enabled:
             self._stop_watch()
 
+    def _switch_to(self, screen_name: str):
+        """Pop to DagsScreen floor, then push the target screen."""
+        self._cancel_watch_on_switch()
+        while len(self.screen_stack) > 2:
+            self.pop_screen()
+        self.push_screen(screen_name)
+
     def action_switch_dags(self):
         self._cancel_watch_on_switch()
         while len(self.screen_stack) > 2:
             self.pop_screen()
 
     def action_switch_recent(self):
-        self._cancel_watch_on_switch()
-        self.push_screen("recent_activity")
+        self._switch_to("recent_activity")
         _asyncio.create_task(self._load_recent_activity())
 
     def action_switch_pools(self):
-        self._cancel_watch_on_switch()
-        self.push_screen("pools")
+        self._switch_to("pools")
         _asyncio.create_task(self._load_pools())
 
     def action_switch_health(self):
-        self._cancel_watch_on_switch()
-        self.push_screen("health")
+        self._switch_to("health")
         _asyncio.create_task(self._load_health())
 
     def action_switch_errors(self):
-        self._cancel_watch_on_switch()
-        self.push_screen("import_errors")
+        self._switch_to("import_errors")
         _asyncio.create_task(self._load_import_errors())
 
     def action_switch_sla(self):
-        self._cancel_watch_on_switch()
-        self.push_screen("sla_misses")
+        self._switch_to("sla_misses")
         _asyncio.create_task(self._load_sla_misses())
 
     def action_switch_timeline(self):
-        self._cancel_watch_on_switch()
-        self.push_screen("resource_timeline")
+        self._switch_to("resource_timeline")
         _asyncio.create_task(self._load_resource_timeline())
 
     def action_switch_watchlist(self):
-        self._cancel_watch_on_switch()
-        self.push_screen("watchlist")
+        self._switch_to("watchlist")
         _asyncio.create_task(self._load_watchlist())
 
     # ── DAG-context actions (g, h, d — require dags-table selection) ─────────
@@ -364,8 +401,8 @@ class AirTermApp(App):
                     duration,
                     "",
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            self._flash_error(f"Recent activity load failed: {str(e)[:80]}")
 
     async def _load_pools(self):
         try:
@@ -374,8 +411,8 @@ class AirTermApp(App):
                 return
             pools_result = await client.get_pools()
             self.screen.update_pools(pools_result.pools)
-        except Exception:
-            pass
+        except Exception as e:
+            self._flash_error(f"Pools load failed: {str(e)[:80]}")
 
     async def _load_health(self):
         try:
@@ -384,8 +421,8 @@ class AirTermApp(App):
                 return
             health_result = await client.get_health()
             self.screen.update_health(health_result)
-        except Exception:
-            pass
+        except Exception as e:
+            self._flash_error(f"Health load failed: {str(e)[:80]}")
 
     async def _load_import_errors(self):
         try:
@@ -401,8 +438,8 @@ class AirTermApp(App):
                     error.stack_trace[:50] if error.stack_trace else "",
                     str(error.timestamp)[:19] if error.timestamp else "",
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            self._flash_error(f"Import errors load failed: {str(e)[:80]}")
 
     async def _load_event_logs(self):
         try:
@@ -414,13 +451,13 @@ class AirTermApp(App):
             table.clear()
             for log in logs_result.event_logs:
                 table.add_row(
-                    str(log.when)[:19] if log.when else "",
+                    str(log.event_timestamp)[:19] if log.event_timestamp else "",
                     log.dag_id or "",
-                    log.event if log.event else "",
+                    log.event_type if log.event_type else "",
                     log.owner if log.owner else "",
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            self._flash_error(f"Event logs load failed: {str(e)[:80]}")
 
     async def _load_sla_misses(self):
         from datetime import datetime, timezone
@@ -465,8 +502,8 @@ class AirTermApp(App):
                     })
 
             self.screen.update_sla(breaches, len(running))
-        except Exception:
-            pass
+        except Exception as e:
+            self._flash_error(f"SLA check failed: {str(e)[:80]}")
 
     async def _load_xcoms(self, dag_id: str, run_id: str, task_id: str):
         try:
@@ -477,8 +514,8 @@ class AirTermApp(App):
             screen.set_context(dag_id, run_id, task_id)
             result = await client.get_xcom_entries(dag_id, run_id, task_id)
             screen.update_xcoms(result.xcom_entries)
-        except Exception:
-            pass
+        except Exception as e:
+            self._flash_error(f"XCom load failed: {str(e)[:80]}")
 
     async def _load_dag_graph(self, dag_id: str):
         try:
@@ -492,8 +529,8 @@ class AirTermApp(App):
                 for downstream in task.downstream_task_ids:
                     edges.append((task.task_id, downstream))
             self.screen.render_graph(tasks, edges)
-        except Exception:
-            pass
+        except Exception as e:
+            self._flash_error(f"Graph load failed: {str(e)[:80]}")
 
     async def _load_task_history(self, dag_id: str):
         try:
@@ -528,8 +565,8 @@ class AirTermApp(App):
             screen = self.screen
             screen.set_context("(all tasks)", dag_id)
             screen.update_history(all_entries, failure_rate, avg_duration, total_retries, pattern)
-        except Exception:
-            pass
+        except Exception as e:
+            self._flash_error(f"Task history load failed: {str(e)[:80]}")
 
     async def _load_dag_detail(self, dag_id: str):
         from airterm.metrics.aggregations import (
@@ -583,8 +620,8 @@ class AirTermApp(App):
                 last_failure=last_failure_str,
                 runs=runs,
             )
-        except Exception:
-            pass
+        except Exception as e:
+            self._flash_error(f"DAG detail load failed: {str(e)[:80]}")
 
     async def _load_dag_deps(self, dag_id: str):
         """Load dataset dependency information for a DAG."""
@@ -645,8 +682,8 @@ class AirTermApp(App):
                 })
 
             screen.update_deps(deps, dag_id)
-        except Exception:
-            pass
+        except Exception as e:
+            self._flash_error(f"Dependencies load failed: {str(e)[:80]}")
 
     async def _load_task_log(self, dag_id: str, run_id: str, task_id: str, try_number: int):
         """Fetch task log and display last 30 lines in task instances screen."""
@@ -676,54 +713,42 @@ class AirTermApp(App):
             cutoff = now - timedelta(hours=24)
             cutoff_str = cutoff.isoformat()
 
-            # Get recent runs and pools
-            runs_result = await client.get_all_dag_runs(
-                limit=200, end_date_gte=cutoff_str
+            # 2 API calls instead of 200+
+            ti_result = await client.get_all_task_instances(
+                end_date_gte=cutoff_str, limit=500
             )
             pools_result = await client.get_pools()
 
             pool_capacity = {p.name: p.slots for p in pools_result.pools}
-            # pool_hours[pool_name][hour_offset] = total slot-minutes in that hour
             pool_hours: dict = {}
-            # consumer tracking: dag_id → {slot_minutes, pool}
             consumers: dict = {}
 
-            # For each run, fetch task instances to get pool + timing
-            for run in runs_result.dag_runs:
-                if not run.start_date:
+            for ti in ti_result.task_instances:
+                if not ti.start_date:
                     continue
-                try:
-                    ti_result = await client.get_task_instances(run.dag_id, run.dag_run_id)
-                except Exception:
-                    continue
+                end = ti.end_date or now
+                pool = ti.pool or "default_pool"
+                duration_mins = (end - ti.start_date).total_seconds() / 60
 
-                for ti in ti_result.task_instances:
-                    if not ti.start_date:
-                        continue
-                    end = ti.end_date or now
-                    pool = ti.pool or "default_pool"
-                    duration_mins = (end - ti.start_date).total_seconds() / 60
+                # Track consumers
+                key = f"{ti.dag_id}:{pool}"
+                if key not in consumers:
+                    consumers[key] = {"dag_id": ti.dag_id, "slot_minutes": 0, "pool": pool}
+                consumers[key]["slot_minutes"] += duration_mins
 
-                    # Track consumers
-                    key = f"{run.dag_id}:{pool}"
-                    if key not in consumers:
-                        consumers[key] = {"dag_id": run.dag_id, "slot_minutes": 0, "pool": pool}
-                    consumers[key]["slot_minutes"] += duration_mins
-
-                    # Map to hourly buckets
-                    if pool not in pool_hours:
-                        pool_hours[pool] = {}
-                    # Which hour offset does this task fall in?
-                    hours_ago = (now - ti.start_date).total_seconds() / 3600
-                    hour_offset = min(int(hours_ago), 23)
-                    if 0 <= hour_offset <= 23:
-                        pool_hours[pool][hour_offset] = pool_hours[pool].get(hour_offset, 0) + 1
+                # Map to hourly buckets
+                if pool not in pool_hours:
+                    pool_hours[pool] = {}
+                hours_ago = (now - ti.start_date).total_seconds() / 3600
+                hour_offset = min(int(hours_ago), 23)
+                if 0 <= hour_offset <= 23:
+                    pool_hours[pool][hour_offset] = pool_hours[pool].get(hour_offset, 0) + 1
 
             top_consumers = sorted(consumers.values(), key=lambda x: x["slot_minutes"], reverse=True)
 
             self.screen.update_timeline(pool_hours, pool_capacity, top_consumers)
-        except Exception:
-            pass
+        except Exception as e:
+            self._flash_error(f"Timeline load failed: {str(e)[:80]}")
 
     async def _load_watchlist(self):
         """Load status for all bookmarked DAGs."""
@@ -779,8 +804,8 @@ class AirTermApp(App):
                     entries.append({"dag_id": dag_id, "state": "error"})
 
             self.screen.update_watchlist(entries)
-        except Exception:
-            pass
+        except Exception as e:
+            self._flash_error(f"Watchlist load failed: {str(e)[:80]}")
 
     # ── Navigation ───────────────────────────────────────────────────────────
 
@@ -828,6 +853,19 @@ class AirTermApp(App):
         pass
 
     def action_quit(self):
+        if self._auto_refresh_enabled:
+            self._stop_watch()
+        if self._poller or self._client:
+            _asyncio.create_task(self._shutdown())
+        else:
+            self.exit()
+
+    async def _shutdown(self):
+        """Clean shutdown: stop poller, close HTTP client."""
+        if self._poller:
+            await self._poller.stop_all()
+        if self._client:
+            await self._client.close()
         self.exit()
 
     def _show_error(self, message: str):
