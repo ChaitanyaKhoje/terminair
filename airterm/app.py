@@ -12,7 +12,6 @@ from airterm.config import Config
 from airterm.screens.dag_deps import DagDepsScreen
 from airterm.screens.dag_detail import DagDetailScreen
 from airterm.screens.dag_graph import DAGGraphScreen
-from airterm.screens.dag_runs import DagRunsScreen
 from airterm.screens.dags import DagsScreen
 from airterm.screens.event_log import EventLogScreen
 from airterm.screens.health import HealthScreen
