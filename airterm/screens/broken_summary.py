@@ -51,17 +51,28 @@ class BrokenSummaryScreen(Screen):
         self._refresh_header()
 
     def _refresh_header(self):
+        sep = " [dim]·[/dim] "
+
+        def bind(key: str, desc: str) -> str:
+            return f"[cyan]{key}[/cyan] [dim]{desc}[/dim]"
+
+        title = (
+            " [bold red]Currently Broken[/bold red]  [dim]│[/dim]  "
+            "[dim]import · failed runs · SLA breaches[/dim]"
+        )
+        nav = sep.join(
+            [
+                bind("esc", "Back"),
+                bind("3", "Pools"),
+                bind("4", "Health"),
+                bind("5", "Errors"),
+                bind("6", "SLA"),
+                bind("7", "Time"),
+                bind("q", "Quit"),
+            ]
+        )
         self.query_one("#broken-header", Static).update(
-            " [bold red]Currently Broken[/bold red]  "
-            "[dim]import errors · failed runs · SLA breaches[/dim]\n"
-            " \n"
-            " [dim]<[/dim][cyan]esc[/cyan][dim]>[/dim] Back  "
-            "[dim]<[/dim][cyan]3[/cyan][dim]>[/dim] Pools  "
-            "[dim]<[/dim][cyan]4[/cyan][dim]>[/dim] Health  "
-            "[dim]<[/dim][cyan]5[/cyan][dim]>[/dim] Errors  "
-            "[dim]<[/dim][cyan]6[/cyan][dim]>[/dim] SLA  "
-            "[dim]<[/dim][cyan]7[/cyan][dim]>[/dim] Timeline  "
-            "[dim]<[/dim][cyan]q[/cyan][dim]>[/dim] Quit"
+            "\n".join([title, "", f" [dim]{'session':9}[/dim] {nav}"])
         )
 
     def update_broken(self, items: list):

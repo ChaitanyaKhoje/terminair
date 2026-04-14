@@ -1,6 +1,5 @@
 """DAGs overview screen - k9s style layout."""
 
-import re
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.screen import Screen
@@ -20,7 +19,7 @@ class DagsScreen(Screen):
     }
 
     #dags-header {
-        height: 4;
+        height: 6;
         background: #282a36;
         padding: 0 1;
     }
@@ -46,7 +45,7 @@ class DagsScreen(Screen):
         Binding("enter", "drill_in", "Drill In", priority=True),
         Binding("/", "show_filter", "Filter", priority=True),
         Binding("b", "bookmark", "Bookmark"),
-        Binding("w", "toggle_wrap", "Wrap"),
+        Binding("W", "toggle_wrap", "Wrap"),
     ]
 
     def __init__(self):
@@ -88,39 +87,61 @@ class DagsScreen(Screen):
                     if hasattr(conn_obj.auth, "username"):
                         user = conn_obj.auth.username or "n/a"
 
-            left_lines = [
-                f" [dim]Connection:[/dim] [cyan]{conn}[/cyan]",
-                f" [dim]User:[/dim]       [yellow]{user}[/yellow]",
-                f" [dim]AirTerm:[/dim]    [green]v0.1.0[/green]",
-            ]
-            hint_lines = [
-                " [dim]<[/dim][cyan]2[/cyan][dim]>[/dim] Broken "
-                "[dim]<[/dim][cyan]3[/cyan][dim]>[/dim] Pools  "
-                "[dim]<[/dim][cyan]4[/cyan][dim]>[/dim] Health "
-                "[dim]<[/dim][cyan]5[/cyan][dim]>[/dim] Errors "
-                "[dim]<[/dim][cyan]6[/cyan][dim]>[/dim] SLA "
-                "[dim]<[/dim][cyan]7[/cyan][dim]>[/dim] Timeline "
-                "[dim]<[/dim][cyan]0[/cyan][dim]>[/dim] Watchlist",
+            def bind(key: str, desc: str) -> str:
+                return f"[cyan]{key}[/cyan] [dim]{desc}[/dim]"
 
-                " [dim]<[/dim][cyan]enter[/cyan][dim]>[/dim] Drill  "
-                "[dim]<[/dim][cyan]esc[/cyan][dim]>[/dim] Back  "
-                "[dim]<[/dim][cyan]/[/cyan][dim]>[/dim] Filter  "
-                "[dim]<[/dim][cyan]w[/cyan][dim]>[/dim] Wrap  "
-                "[dim]<[/dim][cyan]r[/cyan][dim]>[/dim] Refresh  "
-                "[dim]<[/dim][cyan]b[/cyan][dim]>[/dim] Bookmark",
+            sep = " [dim]·[/dim] "
+            meta = (
+                "[bold]DAGs[/bold]  [dim]│[/dim]  "
+                f"[dim]conn[/dim] [cyan]{conn}[/cyan]  [dim]│[/dim]  "
+                f"[dim]user[/dim] [yellow]{user}[/yellow]  [dim]│[/dim]  "
+                "[green]v0.1.0[/green]"
+            )
+            row_screens = sep.join(
+                [
+                    bind("2", "Broken"),
+                    bind("3", "Pools"),
+                    bind("4", "Health"),
+                    bind("5", "Errors"),
+                    bind("6", "SLA"),
+                    bind("7", "Time"),
+                    bind("0", "Watchlist"),
+                ]
+            )
+            row_session = sep.join(
+                [
+                    bind("enter", "Drill"),
+                    bind("esc", "Back"),
+                    bind("/", "Filter"),
+                    bind("w", "LIVE"),
+                    bind("W", "Wrap"),
+                    bind("r", "Refresh"),
+                    bind("b", "Bookmark"),
+                ]
+            )
+            row_dag = sep.join(
+                [
+                    bind("g", "Graph"),
+                    bind("h", "History"),
+                    bind("d", "Deps"),
+                    bind(":", "Cmd"),
+                    bind("q", "Quit"),
+                ]
+            )
 
-                " [dim]<[/dim][cyan]g[/cyan][dim]>[/dim] Graph  "
-                "[dim]<[/dim][cyan]h[/cyan][dim]>[/dim] History  "
-                "[dim]<[/dim][cyan]d[/cyan][dim]>[/dim] Deps  "
-                "[dim]<[/dim][cyan]:[/cyan][dim]>[/dim] Cmd  "
-                "[dim]<[/dim][cyan]q[/cyan][dim]>[/dim] Quit",
-            ]
-            pad = 38
-            lines = []
-            for l, h in zip(left_lines, hint_lines):
-                plain = re.sub(r"\[.*?\]", "", l)
-                lines.append(l + " " * max(0, pad - len(plain)) + h)
-            self.query_one("#dags-header", Static).update("\n".join(lines))
+            def section(label: str, keys: str) -> str:
+                return f" [dim]{label:9}[/dim] {keys}"
+
+            text = "\n".join(
+                [
+                    " " + meta,
+                    "",
+                    section("screens", row_screens),
+                    section("session", row_session),
+                    section("dag", row_dag),
+                ]
+            )
+            self.query_one("#dags-header", Static).update(text)
         except Exception:
             pass
 

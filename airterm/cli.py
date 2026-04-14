@@ -16,7 +16,11 @@ from airterm.config import CLIConfig, Config, merge_configs
 @click.option("--ctx", help="Connection context name")
 @click.option("--config", type=click.Path(path_type=Path), help="Config file path")
 @click.option("--dag", help="Jump to specific DAG on startup")
-@click.option("--refresh", type=int, help="Refresh interval in seconds")
+@click.option(
+    "--refresh",
+    type=int,
+    help="Live auto-refresh interval in seconds (default: 60; maps to refresh_interval in config)",
+)
 @click.option("--version", is_flag=True, help="Show version")
 def main(
     url,

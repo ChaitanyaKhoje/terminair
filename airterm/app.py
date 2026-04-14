@@ -1,10 +1,15 @@
 """Textual App subclass for AirTerm."""
 
 import asyncio as _asyncio
-from typing import Optional
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING, Optional
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
+from textual.widgets import Static
+
+if TYPE_CHECKING:
+    from textual.timer import Timer
 
 from airterm.api.client import AirflowClient
 from airterm.api.poller import Poller
@@ -57,6 +62,7 @@ class AirTermApp(App):
         Binding("ctrl+c", "quit", "Quit", priority=True),
         Binding("q", "quit", "Quit"),
         Binding("escape", "back", "Back"),
+        Binding("w", "toggle_live", "Live", priority=True),
         Binding("r", "refresh", "Refresh"),
         Binding(":", "command_palette", "Command"),
         Binding("2", "switch_broken", "Broken"),
@@ -80,9 +86,13 @@ class AirTermApp(App):
         self._nav_stack: list[tuple] = []
         self._watchlist: list[str] = list(config.settings.watchlist)
         self._active_screen_context: Optional[str] = None
+        self._auto_refresh_enabled = False
+        self._last_refresh_at: Optional[datetime] = None
+        self._live_timer: Optional["Timer"] = None
 
     def compose(self) -> ComposeResult:
         yield CommandPalette()
+        yield Static("", id="refresh-status")
         yield FlashBar()
 
     def _flash_error(self, text: str):
@@ -98,6 +108,46 @@ class AirTermApp(App):
             self.query_one(FlashBar).flash_warn(text)
         except Exception:
             pass
+
+    def _touch_refresh(self) -> None:
+        self._last_refresh_at = datetime.now(timezone.utc)
+        self._update_refresh_status()
+
+    def _update_refresh_status(self) -> None:
+        try:
+            bar = self.query_one("#refresh-status", Static)
+        except Exception:
+            return
+        interval = self._config.settings.refresh_interval
+        live = self._auto_refresh_enabled
+        ts = self._last_refresh_at
+        ts_s = ts.strftime("%Y-%m-%d %H:%M:%S UTC") if ts else "—"
+        live_part = f"[yellow]LIVE[/yellow] every {interval}s  " if live else ""
+        bar.update(f" {live_part}[dim]last refresh[/dim] [cyan]{ts_s}[/cyan]")
+
+    def _schedule_live_reload(self) -> None:
+        _asyncio.create_task(self._reload_current_screen())
+
+    def action_toggle_live(self) -> None:
+        if self._auto_refresh_enabled:
+            self._stop_watch()
+        else:
+            self._start_watch()
+
+    def _start_watch(self) -> None:
+        if self._live_timer is not None:
+            return
+        sec = float(self._config.settings.refresh_interval)
+        self._live_timer = self.set_interval(sec, self._schedule_live_reload, name="airterm_live")
+        self._auto_refresh_enabled = True
+        self._update_refresh_status()
+
+    def _stop_watch(self) -> None:
+        if self._live_timer is not None:
+            self._live_timer.stop()
+            self._live_timer = None
+        self._auto_refresh_enabled = False
+        self._update_refresh_status()
 
     def on_mount(self) -> None:
         _asyncio.create_task(self._init_app())
@@ -182,6 +232,7 @@ class AirTermApp(App):
             result = await client.get_dags(limit=100)
             self._cached_dags = result.dags
             self.screen.update_dags(result.dags)
+            self._touch_refresh()
         except Exception as e:
             self._flash_error(f"DAGs load failed: {str(e)[:80]}")
 
@@ -194,6 +245,7 @@ class AirTermApp(App):
 
     def _switch_to(self, screen_name: str):
         """Pop to DagsScreen floor, then push the target screen."""
+        self._cancel_watch_on_switch()
         while len(self.screen_stack) > 2:
             self.pop_screen()
         self.push_screen(screen_name)
@@ -368,6 +420,7 @@ class AirTermApp(App):
                     })
 
             self.screen.update_broken(items)
+            self._touch_refresh()
         except Exception as e:
             self._flash_error(f"Broken summary load failed: {str(e)[:80]}")
 
@@ -382,6 +435,7 @@ class AirTermApp(App):
             if not runs_result.dag_runs:
                 empty.display = True
                 screen.display = False
+                self._touch_refresh()
                 return
             screen.display = True
             empty.display = False
@@ -400,6 +454,7 @@ class AirTermApp(App):
                     duration,
                     "",
                 )
+            self._touch_refresh()
         except Exception as e:
             self._flash_error(f"Recent activity load failed: {str(e)[:80]}")
 
@@ -410,6 +465,7 @@ class AirTermApp(App):
                 return
             pools_result = await client.get_pools()
             self.screen.update_pools(pools_result.pools)
+            self._touch_refresh()
         except Exception as e:
             self._flash_error(f"Pools load failed: {str(e)[:80]}")
 
@@ -420,6 +476,7 @@ class AirTermApp(App):
                 return
             health_result = await client.get_health()
             self.screen.update_health(health_result)
+            self._touch_refresh()
         except Exception as e:
             self._flash_error(f"Health load failed: {str(e)[:80]}")
 
@@ -430,6 +487,7 @@ class AirTermApp(App):
                 return
             errors_result = await client.get_import_errors()
             self.screen.update_errors(errors_result.import_errors)
+            self._touch_refresh()
         except Exception as e:
             self._flash_error(f"Import errors load failed: {str(e)[:80]}")
 
@@ -448,6 +506,7 @@ class AirTermApp(App):
                     log.event_type if log.event_type else "",
                     log.owner if log.owner else "",
                 )
+            self._touch_refresh()
         except Exception as e:
             self._flash_error(f"Event logs load failed: {str(e)[:80]}")
 
@@ -462,6 +521,7 @@ class AirTermApp(App):
 
             if not running:
                 self.screen.update_sla([], 0)
+                self._touch_refresh()
                 return
 
             dag_durations: dict = {}
@@ -494,6 +554,7 @@ class AirTermApp(App):
                     })
 
             self.screen.update_sla(breaches, len(running))
+            self._touch_refresh()
         except Exception as e:
             self._flash_error(f"SLA check failed: {str(e)[:80]}")
 
@@ -506,6 +567,7 @@ class AirTermApp(App):
             screen.set_context(dag_id, run_id, task_id)
             result = await client.get_xcom_entries(dag_id, run_id, task_id)
             screen.update_xcoms(result.xcom_entries)
+            self._touch_refresh()
         except Exception as e:
             self._flash_error(f"XCom load failed: {str(e)[:80]}")
 
@@ -521,6 +583,7 @@ class AirTermApp(App):
                 for downstream in task.downstream_task_ids:
                     edges.append((task.task_id, downstream))
             self.screen.render_graph(tasks, edges)
+            self._touch_refresh()
         except Exception as e:
             self._flash_error(f"Graph load failed: {str(e)[:80]}")
 
@@ -557,6 +620,7 @@ class AirTermApp(App):
             screen = self.screen
             screen.set_context("(all tasks)", dag_id)
             screen.update_history(all_entries, failure_rate, avg_duration, total_retries, pattern)
+            self._touch_refresh()
         except Exception as e:
             self._flash_error(f"Task history load failed: {str(e)[:80]}")
 
@@ -612,6 +676,7 @@ class AirTermApp(App):
                 last_failure=last_failure_str,
                 runs=runs,
             )
+            self._touch_refresh()
         except Exception as e:
             self._flash_error(f"DAG detail load failed: {str(e)[:80]}")
 
@@ -674,6 +739,7 @@ class AirTermApp(App):
                 })
 
             screen.update_deps(deps, dag_id)
+            self._touch_refresh()
         except Exception as e:
             self._flash_error(f"Dependencies load failed: {str(e)[:80]}")
 
@@ -736,11 +802,13 @@ class AirTermApp(App):
             top_consumers = sorted(consumers.values(), key=lambda x: x["slot_minutes"], reverse=True)
 
             self.screen.update_timeline(pool_hours, pool_capacity, top_consumers)
+            self._touch_refresh()
         except Exception as e:
             err = str(e)[:120]
             self._flash_error(f"Timeline load failed: {err}")
             try:
                 self.screen.update_timeline({}, {}, [], error=err)
+                self._touch_refresh()
             except Exception:
                 pass
 
@@ -755,6 +823,7 @@ class AirTermApp(App):
             watchlist = self._watchlist
             if not watchlist:
                 self.screen.update_watchlist([])
+                self._touch_refresh()
                 return
 
             entries = []
@@ -798,6 +867,7 @@ class AirTermApp(App):
                     entries.append({"dag_id": dag_id, "state": "error"})
 
             self.screen.update_watchlist(entries)
+            self._touch_refresh()
         except Exception as e:
             self._flash_error(f"Watchlist load failed: {str(e)[:80]}")
 
@@ -853,6 +923,7 @@ class AirTermApp(App):
 
     async def _shutdown(self):
         """Clean shutdown: stop poller, close HTTP client."""
+        self._stop_watch()
         if self._poller:
             await self._poller.stop_all()
         if self._client:

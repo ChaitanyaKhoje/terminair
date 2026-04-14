@@ -64,4 +64,12 @@ DataTable > .datatable--cursor {
     background: $panel;
     border-bottom: solid $accent;
 }
+
+#refresh-status {
+    dock: bottom;
+    height: 1;
+    background: $panel;
+    color: $text-muted;
+    padding: 0 1;
+}
 """

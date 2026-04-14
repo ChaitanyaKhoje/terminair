@@ -31,7 +31,7 @@ class Connection(BaseModel):
 
 class Settings(BaseModel):
     default_connection: str = "default"
-    refresh_interval: int = 5
+    refresh_interval: int = 60
     log_poll_interval: int = 2
     default_dag_run_limit: int = 50
     theme: str = "dark"

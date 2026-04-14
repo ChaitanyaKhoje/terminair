@@ -18,7 +18,7 @@ class ImportErrorsScreen(Screen):
     }
 
     #errors-header {
-        height: 2;
+        height: 3;
         background: #282a36;
         padding: 0 1;
     }
@@ -70,10 +70,18 @@ class ImportErrorsScreen(Screen):
         table.add_columns("Filename", "Error", "Detected")
         table.cursor_type = "row"
         table.border_title = "import-errors(0)"
+        sep = " [dim]·[/dim] "
+
+        def bind(key: str, desc: str) -> str:
+            return f"[cyan]{key}[/cyan] [dim]{desc}[/dim]"
+
+        title = (
+            " [bold]Import Errors[/bold]  [dim]│[/dim]  "
+            "[dim]DAG parse failures[/dim]"
+        )
+        nav = sep.join([bind("esc", "Back"), bind("q", "Quit")])
         self.query_one("#errors-header", Static).update(
-            " [bold]Import Errors[/bold]  [dim]DAG parse failures[/dim]  "
-            "[dim]<[/dim][cyan]esc[/cyan][dim]>[/dim] Back  "
-            "[dim]<[/dim][cyan]q[/cyan][dim]>[/dim] Quit"
+            "\n".join([title, "", f" [dim]{'session':9}[/dim] {nav}"])
         )
 
     def on_data_table_row_highlighted(self, event) -> None:
