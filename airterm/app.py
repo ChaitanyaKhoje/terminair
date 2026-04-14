@@ -53,23 +53,11 @@ class AirTermApp(App):
     }
     DEFAULT_AUTO_FOCUS = ""
 
-    # Per-screen refresh intervals (seconds)
-    _SCREEN_REFRESH_INTERVALS = {
-        "DagsScreen": 5,
-        "BrokenSummaryScreen": 30,
-        "PoolsScreen": 30,
-        "HealthScreen": 60,
-        "ImportErrorsScreen": 60,
-        "SlaMissScreen": 30,
-        "DagDetailScreen": 5,
-        "ResourceTimelineScreen": 30,
-        "WatchlistScreen": 30,
-    }
-
     BINDINGS = [
         Binding("ctrl+c", "quit", "Quit", priority=True),
         Binding("q", "quit", "Quit"),
         Binding("escape", "back", "Back"),
+        Binding("r", "refresh", "Refresh"),
         Binding(":", "command_palette", "Command"),
         Binding("2", "switch_broken", "Broken"),
         Binding("3", "switch_pools", "Pools"),
@@ -91,10 +79,6 @@ class AirTermApp(App):
         self._poller: Optional[Poller] = None
         self._nav_stack: list[tuple] = []
         self._watchlist: list[str] = list(config.settings.watchlist)
-        self._auto_refresh_task: Optional[_asyncio.Task] = None
-        self._auto_refresh_enabled = True
-        self._refresh_in_flight = False
-        # Tracks the context for the active screen so auto-refresh can reload
         self._active_screen_context: Optional[str] = None
 
     def compose(self) -> ComposeResult:
@@ -151,91 +135,39 @@ class AirTermApp(App):
 
         self._cached_dags = dags_result.dags
         self.push_screen("dags")
-        await self._load_initial_data()
-        self._start_watch()
+        await self._load_dags()
 
-    async def _load_initial_data(self):
-        poller = self._poller
-        if not poller:
-            return
-        await poller.start_polling(
-            "dags",
-            self._config.settings.refresh_interval,
-            limit=100,
-        )
+    # ── Manual refresh (r key) ───────────────────────────────────────────────
 
-    # ── Auto-refresh (watch mode) ────────────────────────────────────────────
+    def action_refresh(self):
+        _asyncio.create_task(self._reload_current_screen())
 
-    def action_toggle_watch(self):
-        if self._auto_refresh_enabled:
-            self._stop_watch()
-        else:
-            self._start_watch()
-
-    def _start_watch(self):
-        self._auto_refresh_enabled = True
-        self._auto_refresh_task = _asyncio.create_task(self._watch_loop())
-        self._update_live_indicator(True)
-
-    def _stop_watch(self):
-        self._auto_refresh_enabled = False
-        if self._auto_refresh_task:
-            self._auto_refresh_task.cancel()
-            self._auto_refresh_task = None
-        self._update_live_indicator(False)
-
-    def _update_live_indicator(self, is_live: bool):
-        try:
-            screen = self.screen
-            if hasattr(screen, "update_footer_live"):
-                screen.update_footer_live(is_live)
-        except Exception:
-            pass
-
-    async def _watch_loop(self):
-        while self._auto_refresh_enabled:
-            screen_id = self.screen.__class__.__name__
-            interval = self._SCREEN_REFRESH_INTERVALS.get(
-                screen_id, self._config.settings.refresh_interval
-            )
-            await _asyncio.sleep(interval)
-            if not self._auto_refresh_enabled:
-                break
-            if self._refresh_in_flight:
-                continue
-            self._refresh_in_flight = True
-            try:
-                await self._refresh_current_screen()
-            except Exception as e:
-                self._flash_error(f"Refresh failed: {str(e)[:80]}")
-            finally:
-                self._refresh_in_flight = False
-
-    async def _refresh_current_screen(self):
+    async def _reload_current_screen(self):
         """Re-load data for whatever screen is currently active."""
-        screen = self.screen
-        screen_id = screen.__class__.__name__
-
-        if screen_id == "DagsScreen":
-            await self._load_dags()
-        elif screen_id == "BrokenSummaryScreen":
-            await self._load_broken_summary()
-        elif screen_id == "PoolsScreen":
-            await self._load_pools()
-        elif screen_id == "HealthScreen":
-            await self._load_health()
-        elif screen_id == "ImportErrorsScreen":
-            await self._load_import_errors()
-        elif screen_id == "RecentActivityScreen":
-            await self._load_recent_activity()
-        elif screen_id == "SlaMissScreen":
-            await self._load_sla_misses()
-        elif screen_id == "DagDetailScreen" and self._active_screen_context:
-            await self._load_dag_detail(self._active_screen_context)
-        elif screen_id == "ResourceTimelineScreen":
-            await self._load_resource_timeline()
-        elif screen_id == "WatchlistScreen":
-            await self._load_watchlist()
+        screen_id = self.screen.__class__.__name__
+        try:
+            if screen_id == "DagsScreen":
+                await self._load_dags()
+            elif screen_id == "BrokenSummaryScreen":
+                await self._load_broken_summary()
+            elif screen_id == "PoolsScreen":
+                await self._load_pools()
+            elif screen_id == "HealthScreen":
+                await self._load_health()
+            elif screen_id == "ImportErrorsScreen":
+                await self._load_import_errors()
+            elif screen_id == "RecentActivityScreen":
+                await self._load_recent_activity()
+            elif screen_id == "SlaMissScreen":
+                await self._load_sla_misses()
+            elif screen_id == "DagDetailScreen" and self._active_screen_context:
+                await self._load_dag_detail(self._active_screen_context)
+            elif screen_id == "ResourceTimelineScreen":
+                await self._load_resource_timeline()
+            elif screen_id == "WatchlistScreen":
+                await self._load_watchlist()
+        except Exception as e:
+            self._flash_error(f"Refresh failed: {str(e)[:80]}")
 
     async def _load_dags(self):
         try:
@@ -765,13 +697,10 @@ class AirTermApp(App):
                 return
 
             now = datetime.now(timezone.utc)
-            cutoff = now - timedelta(hours=24)
-            cutoff_str = cutoff.isoformat()
 
-            # 2 API calls instead of 200+
-            ti_result = await client.get_all_task_instances(
-                start_date_gte=cutoff_str, limit=500
-            )
+            # Fetch without date filter — rendering loop already limits to 24h.
+            # Passing start_date_gte causes 400s on some Airflow versions.
+            ti_result = await client.get_all_task_instances(limit=500)
             pools_result = await client.get_pools()
 
             pool_capacity = {p.name: p.slots for p in pools_result.pools}
@@ -803,7 +732,12 @@ class AirTermApp(App):
 
             self.screen.update_timeline(pool_hours, pool_capacity, top_consumers)
         except Exception as e:
-            self._flash_error(f"Timeline load failed: {str(e)[:80]}")
+            err = str(e)[:120]
+            self._flash_error(f"Timeline load failed: {err}")
+            try:
+                self.screen.update_timeline({}, {}, [], error=err)
+            except Exception:
+                pass
 
     async def _load_watchlist(self):
         """Load status for all bookmarked DAGs."""
@@ -907,8 +841,6 @@ class AirTermApp(App):
         pass
 
     def action_quit(self):
-        if self._auto_refresh_enabled:
-            self._stop_watch()
         if self._poller or self._client:
             _asyncio.create_task(self._shutdown())
         else:

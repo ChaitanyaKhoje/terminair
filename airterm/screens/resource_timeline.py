@@ -33,13 +33,18 @@ class ResourceTimelineScreen(Screen):
         yield Static("Loading timeline...", id="timeline-grid")
         yield Static("", id="timeline-consumers")
 
-    def update_timeline(self, pool_hours: dict, pool_capacity: dict, top_consumers: list):
+    def update_timeline(self, pool_hours: dict, pool_capacity: dict, top_consumers: list, error: str = ""):
         """
         pool_hours: {pool_name: {hour_offset: slot_count, ...}, ...}
             hour_offset 0 = now, 23 = 23 hours ago
         pool_capacity: {pool_name: total_slots}
         top_consumers: [{"dag_id": str, "slot_minutes": float, "pool": str}, ...]
         """
+        if error:
+            self.query_one("#timeline-grid").update(f"[red]Failed to load timeline:[/red]\n\n{error}")
+            self.query_one("#timeline-consumers").update("")
+            return
+
         shades = " ░▒▓█"
         lines = []
 

@@ -106,6 +106,7 @@ class DagsScreen(Screen):
                 "[dim]<[/dim][cyan]esc[/cyan][dim]>[/dim] Back  "
                 "[dim]<[/dim][cyan]/[/cyan][dim]>[/dim] Filter  "
                 "[dim]<[/dim][cyan]w[/cyan][dim]>[/dim] Wrap  "
+                "[dim]<[/dim][cyan]r[/cyan][dim]>[/dim] Refresh  "
                 "[dim]<[/dim][cyan]b[/cyan][dim]>[/dim] Bookmark",
 
                 " [dim]<[/dim][cyan]g[/cyan][dim]>[/dim] Graph  "
@@ -198,16 +199,6 @@ class DagsScreen(Screen):
     def update_dags(self, dags: list):
         self._all_dags = dags
         self._render_table()
-
-    def update_footer_live(self, is_live: bool):
-        footer = self.query_one("#dags-footer", Static)
-        base = "  <dags>"
-        if self._filter_text:
-            base = f"  <dags>  [dim]filter:[/dim] [yellow]/{self._filter_text}[/yellow]  [dim]<esc> clear[/dim]"
-        if is_live:
-            footer.update(base + "  [bold green][LIVE][/bold green]")
-        else:
-            footer.update(base)
 
     def _render_table(self):
         table = self.query_one("#dags-table", DataTable)
