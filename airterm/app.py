@@ -236,45 +236,60 @@ class AirTermApp(App):
         if self._auto_refresh_enabled:
             self._stop_watch()
 
-    def _switch_to(self, screen_name: str):
-        """Pop to DagsScreen floor, then push the target screen."""
+    def _switch_to(self, screen_name: str) -> bool:
+        """Pop to DagsScreen floor, then push the target screen.
+
+        Returns True if a switch was performed, False if already on that
+        screen (no-op).
+        """
+        # If the requested screen is already active, avoid re-switching and
+        # re-loading (user pressed the key for the current screen).
+        target_cls = self.SCREENS.get(screen_name)
+        try:
+            if target_cls and isinstance(self.screen, target_cls):
+                return False
+        except Exception:
+            # If any introspection fails, proceed with switching as before.
+            pass
+
         self._cancel_watch_on_switch()
         while len(self.screen_stack) > 2:
             self.pop_screen()
         self.push_screen(screen_name)
+        return True
 
     def action_switch_broken(self):
-        self._switch_to("broken_summary")
-        _asyncio.create_task(self._load_broken_summary())
+        if self._switch_to("broken_summary"):
+            _asyncio.create_task(self._load_broken_summary())
 
     def action_switch_pools(self):
-        self._switch_to("pools")
-        _asyncio.create_task(self._load_pools())
+        if self._switch_to("pools"):
+            _asyncio.create_task(self._load_pools())
 
     def action_switch_health(self):
-        self._switch_to("health")
-        _asyncio.create_task(self._load_health())
+        if self._switch_to("health"):
+            _asyncio.create_task(self._load_health())
 
     def action_switch_errors(self):
         # Errors and import-errors merged into broken summary
-        self._switch_to("broken_summary")
-        _asyncio.create_task(self._load_broken_summary())
+        if self._switch_to("broken_summary"):
+            _asyncio.create_task(self._load_broken_summary())
 
     def action_switch_sla(self):
-        self._switch_to("sla_misses")
-        _asyncio.create_task(self._load_sla_misses())
+        if self._switch_to("sla_misses"):
+            _asyncio.create_task(self._load_sla_misses())
 
     def action_switch_timeline(self):
-        self._switch_to("resource_timeline")
-        _asyncio.create_task(self._load_resource_timeline())
+        if self._switch_to("resource_timeline"):
+            _asyncio.create_task(self._load_resource_timeline())
 
     def action_switch_watchlist(self):
-        self._switch_to("watchlist")
-        _asyncio.create_task(self._load_watchlist())
+        if self._switch_to("watchlist"):
+            _asyncio.create_task(self._load_watchlist())
 
     def action_switch_recent(self):
-        self._switch_to("recent_activity")
-        _asyncio.create_task(self._load_recent_activity())
+        if self._switch_to("recent_activity"):
+            _asyncio.create_task(self._load_recent_activity())
 
     # ── DAG-context actions (g, h, d — require dags-table selection) ─────────
 
