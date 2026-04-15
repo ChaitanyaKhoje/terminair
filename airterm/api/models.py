@@ -55,11 +55,12 @@ class Pool(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     name: str
-    slots: int
-    used_slots: int
-    queued_slots: int
-    running_slots: int = Field(alias="running_slots")
-    open_slots: int = Field(alias="open_slots")
+    slots: int = 0
+    # Some Airflow versions/hosts omit these fields; provide safe defaults
+    used_slots: int = 0
+    queued_slots: int = 0
+    running_slots: int = Field(default=0, alias="running_slots")
+    open_slots: int = Field(default=0, alias="open_slots")
 
 
 class PoolList(BaseModel):

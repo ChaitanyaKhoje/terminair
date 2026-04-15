@@ -4,6 +4,7 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.screen import Screen
 from textual.widgets import DataTable, Static
+import asyncio as _asyncio
 
 from airterm.widgets.filter_input import FilterInput
 
@@ -45,7 +46,7 @@ class DagsScreen(Screen):
         Binding("enter", "drill_in", "Drill In", priority=True),
         Binding("/", "show_filter", "Filter", priority=True),
         Binding("b", "bookmark", "Bookmark"),
-        Binding("W", "toggle_wrap", "Wrap"),
+        Binding("w", "toggle_wrap", "Wrap"),
     ]
 
     def __init__(self):
@@ -54,6 +55,7 @@ class DagsScreen(Screen):
         self._all_dags = []
         self._filter_text = ""
         self._wrap_mode = False
+        self._filter_live_task = None
 
     def compose(self) -> ComposeResult:
         yield Static("", id="dags-header")
@@ -64,8 +66,14 @@ class DagsScreen(Screen):
     def on_mount(self) -> None:
         table = self.query_one("#dags-table", DataTable)
         table.add_columns(
-            "DAG ID", "Owner", "Schedule", "State",
-            "Last Run", "Duration", "Next Run", "Active",
+            "DAG ID",
+            "Owner",
+            "Schedule",
+            "State",
+            "Last Run",
+            "Duration",
+            "Next Run",
+            "Active",
         )
         table.cursor_type = "row"
         table.border_title = "dags(0)[0]"
@@ -88,7 +96,7 @@ class DagsScreen(Screen):
                         user = conn_obj.auth.username or "n/a"
 
             def bind(key: str, desc: str) -> str:
-                return f"[cyan]{key}[/cyan] [dim]{desc}[/dim]"
+                return f"[cyan]<{key}>[/cyan] [dim]{desc}[/dim]"
 
             sep = " [dim]·[/dim] "
             meta = (
@@ -99,12 +107,11 @@ class DagsScreen(Screen):
             )
             row_screens = sep.join(
                 [
-                    bind("2", "Broken"),
-                    bind("3", "Pools"),
-                    bind("4", "Health"),
-                    bind("5", "Errors"),
-                    bind("6", "SLA"),
-                    bind("7", "Time"),
+                    bind("1", "Errors"),
+                    bind("2", "Pools"),
+                    bind("3", "Health"),
+                    bind("4", "SLA"),
+                    bind("5", "Time"),
                     bind("0", "Watchlist"),
                 ]
             )
@@ -113,15 +120,13 @@ class DagsScreen(Screen):
                     bind("enter", "Drill"),
                     bind("esc", "Back"),
                     bind("/", "Filter"),
-                    bind("w", "LIVE"),
-                    bind("W", "Wrap"),
+                    bind("w", "Wrap"),
                     bind("r", "Refresh"),
                     bind("b", "Bookmark"),
                 ]
             )
             row_dag = sep.join(
                 [
-                    bind("g", "Graph"),
                     bind("h", "History"),
                     bind("d", "Deps"),
                     bind(":", "Cmd"),
@@ -156,8 +161,14 @@ class DagsScreen(Screen):
             table.add_columns("DAG ID", "Schedule", "State", "Last Run")
         else:
             table.add_columns(
-                "DAG ID", "Owner", "Schedule", "State",
-                "Last Run", "Duration", "Next Run", "Active",
+                "DAG ID",
+                "Owner",
+                "Schedule",
+                "State",
+                "Last Run",
+                "Duration",
+                "Next Run",
+                "Active",
             )
         table.cursor_type = "row"
         table.border_title = saved_title
@@ -167,11 +178,51 @@ class DagsScreen(Screen):
 
     def action_show_filter(self) -> None:
         fb = self.query_one("#dags-filter-bar", FilterInput)
-        fb.open(on_change=self._on_filter_change)
+        fb.open(on_change=self._on_filter_change, on_close=self._on_filter_close)
 
     def _on_filter_change(self, text: str) -> None:
         self._filter_text = text.lower()
         self._render_table()
+
+        # Start/stop a background fetcher that refreshes the DAG list
+        # every 5s while the user is actively filtering.
+        try:
+            if text and (self._filter_live_task is None or self._filter_live_task.done()):
+                self._filter_live_task = _asyncio.create_task(self._filter_live_loop())
+            elif not text and self._filter_live_task:
+                self._filter_live_task.cancel()
+                self._filter_live_task = None
+        except Exception:
+            pass
+
+    def _on_filter_close(self) -> None:
+        # Cancel any live filter worker when the filter bar is closed.
+        try:
+            if self._filter_live_task and not self._filter_live_task.done():
+                self._filter_live_task.cancel()
+        except Exception:
+            pass
+        self._filter_live_task = None
+
+    async def _filter_live_loop(self) -> None:
+        try:
+            while True:
+                fb = self.query_one("#dags-filter-bar", FilterInput)
+                if not fb.display:
+                    break
+                val = fb.current_value
+                if not val:
+                    break
+                # Trigger the app to refresh the DAG list from the server.
+                try:
+                    await self.app._load_dags()
+                except Exception:
+                    pass
+                await _asyncio.sleep(5)
+        except Exception:
+            pass
+        finally:
+            self._filter_live_task = None
 
     # ── navigation ────────────────────────────────────────────────────────────
 
@@ -244,7 +295,9 @@ class DagsScreen(Screen):
         # Footer: show filter hint when active
         footer = self.query_one("#dags-footer", Static)
         if self._filter_text:
-            footer.update(f"  <dags>  [dim]filter:[/dim] [yellow]/{self._filter_text}[/yellow]  [dim]<esc> clear[/dim]")
+            footer.update(
+                f"  <dags>  [dim]filter:[/dim] [yellow]/{self._filter_text}[/yellow]  [dim]<esc> clear[/dim]"
+            )
         else:
             footer.update("  <dags>")
 

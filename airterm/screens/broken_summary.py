@@ -54,7 +54,7 @@ class BrokenSummaryScreen(Screen):
         sep = " [dim]·[/dim] "
 
         def bind(key: str, desc: str) -> str:
-            return f"[cyan]{key}[/cyan] [dim]{desc}[/dim]"
+            return f"[cyan]<{key}>[/cyan] [dim]{desc}[/dim]"
 
         title = (
             " [bold red]Currently Broken[/bold red]  [dim]│[/dim]  "
@@ -63,11 +63,11 @@ class BrokenSummaryScreen(Screen):
         nav = sep.join(
             [
                 bind("esc", "Back"),
-                bind("3", "Pools"),
-                bind("4", "Health"),
-                bind("5", "Errors"),
-                bind("6", "SLA"),
-                bind("7", "Time"),
+                bind("1", "Errors"),
+                bind("2", "Pools"),
+                bind("3", "Health"),
+                bind("4", "SLA"),
+                bind("5", "Time"),
                 bind("q", "Quit"),
             ]
         )

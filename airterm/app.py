@@ -17,12 +17,11 @@ from airterm.config import Config
 from airterm.screens.broken_summary import BrokenSummaryScreen
 from airterm.screens.dag_deps import DagDepsScreen
 from airterm.screens.dag_detail import DagDetailScreen
-from airterm.screens.dag_graph import DAGGraphScreen
 from airterm.screens.dags import DagsScreen
 from airterm.screens.event_log import EventLogScreen
 from airterm.screens.health import HealthScreen
-from airterm.screens.import_errors import ImportErrorsScreen
 from airterm.screens.pools import PoolsScreen
+from airterm.screens.dags import DagsScreen
 from airterm.screens.recent_activity import RecentActivityScreen
 from airterm.screens.resource_timeline import ResourceTimelineScreen
 from airterm.screens.sla_misses import SlaMissScreen
@@ -42,12 +41,10 @@ class AirTermApp(App):
         "dags": DagsScreen,
         "dag_detail": DagDetailScreen,
         "task_instances": TaskInstancesScreen,
-        "dag_graph": DAGGraphScreen,
         "broken_summary": BrokenSummaryScreen,
         "recent_activity": RecentActivityScreen,
         "pools": PoolsScreen,
         "health": HealthScreen,
-        "import_errors": ImportErrorsScreen,
         "event_log": EventLogScreen,
         "task_history": TaskHistoryScreen,
         "xcom_viewer": XComViewerScreen,
@@ -62,18 +59,15 @@ class AirTermApp(App):
         Binding("ctrl+c", "quit", "Quit", priority=True),
         Binding("q", "quit", "Quit"),
         Binding("escape", "back", "Back"),
-        Binding("w", "toggle_live", "Live", priority=True),
         Binding("r", "refresh", "Refresh"),
         Binding(":", "command_palette", "Command"),
-        Binding("2", "switch_broken", "Broken"),
-        Binding("3", "switch_pools", "Pools"),
-        Binding("4", "switch_health", "Health"),
-        Binding("5", "switch_errors", "Errors"),
-        Binding("6", "switch_sla", "SLA"),
-        Binding("7", "switch_timeline", "Timeline"),
+        Binding("1", "switch_broken", "Errors"),
+        Binding("2", "switch_pools", "Pools"),
+        Binding("3", "switch_health", "Health"),
+        Binding("4", "switch_sla", "SLA"),
+        Binding("5", "switch_timeline", "Timeline"),
         Binding("0", "switch_watchlist", "Watchlist"),
         Binding("h", "view_task_history", "Task History"),
-        Binding("g", "view_graph", "Graph"),
         Binding("d", "view_deps", "Deps"),
         Binding("x", "view_xcoms", "XComs"),
     ]
@@ -209,8 +203,7 @@ class AirTermApp(App):
                 await self._load_pools()
             elif screen_id == "HealthScreen":
                 await self._load_health()
-            elif screen_id == "ImportErrorsScreen":
-                await self._load_import_errors()
+            # Import errors merged into broken summary; handled by BrokenSummaryScreen
             elif screen_id == "RecentActivityScreen":
                 await self._load_recent_activity()
             elif screen_id == "SlaMissScreen":
@@ -263,8 +256,9 @@ class AirTermApp(App):
         _asyncio.create_task(self._load_health())
 
     def action_switch_errors(self):
-        self._switch_to("import_errors")
-        _asyncio.create_task(self._load_import_errors())
+        # Errors and import-errors merged into broken summary
+        self._switch_to("broken_summary")
+        _asyncio.create_task(self._load_broken_summary())
 
     def action_switch_sla(self):
         self._switch_to("sla_misses")
@@ -309,12 +303,6 @@ class AirTermApp(App):
         self.push_screen("task_history")
         _asyncio.create_task(self._load_task_history(dag_id))
 
-    def action_view_graph(self):
-        dag_id = self._get_selected_dag_id()
-        if not dag_id:
-            return
-        self.push_screen("dag_graph")
-        _asyncio.create_task(self._load_dag_graph(dag_id))
 
     def action_view_deps(self):
         dag_id = self._get_selected_dag_id()
@@ -527,7 +515,13 @@ class AirTermApp(App):
             if not client:
                 return
             errors_result = await client.get_import_errors()
-            self.screen.update_errors(errors_result.import_errors)
+            # Import errors are now surfaced as part of the broken summary UI.
+            # Keep a compatibility hook: if an ImportErrorsScreen is somehow
+            # active, attempt to update it.
+            try:
+                self.screen.update_errors(errors_result.import_errors)
+            except Exception:
+                pass
             self._touch_refresh()
         except Exception as e:
             self._flash_error(f"Import errors load failed: {str(e)[:80]}")
@@ -616,20 +610,10 @@ class AirTermApp(App):
             self._flash_error(f"XCom load failed: {str(e)[:80]}")
 
     async def _load_dag_graph(self, dag_id: str):
-        try:
-            client = self._client
-            if not client:
-                return
-            task_list = await client.get_dag_tasks(dag_id)
-            tasks = [{"id": t.task_id} for t in task_list.tasks]
-            edges = []
-            for task in task_list.tasks:
-                for downstream in task.downstream_task_ids:
-                    edges.append((task.task_id, downstream))
-            self.screen.render_graph(tasks, edges)
-            self._touch_refresh()
-        except Exception as e:
-            self._flash_error(f"Graph load failed: {str(e)[:80]}")
+        # Graph functionality removed (Airflow UI provides full graph view).
+        # This method intentionally left as a no-op to preserve compatibility
+        # with any legacy calls.
+        return
 
     async def _load_task_history(self, dag_id: str):
         try:
@@ -898,10 +882,18 @@ class AirTermApp(App):
             traceback.print_exc()
             self._flash_error(f"Timeline load failed: {err}")
             try:
+                # Prefer using the screen's helper; if that raises for some
+                # reason (widget not mounted in some environments), fall back
+                # to directly updating the widgets so the user sees feedback.
                 self.screen.update_timeline({}, {}, [], error=err)
                 self._touch_refresh()
             except Exception:
-                pass
+                try:
+                    self.screen.query_one("#timeline-grid").update(f"[red]Failed to load timeline:[/red]\n\n{err}")
+                    self.screen.query_one("#timeline-consumers").update("")
+                    self._touch_refresh()
+                except Exception:
+                    pass
 
     async def _load_watchlist(self):
         """Load status for all bookmarked DAGs."""

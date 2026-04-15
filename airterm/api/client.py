@@ -3,10 +3,25 @@
 from typing import Dict, Optional
 
 import httpx
+import logging
 
 from airterm.api import models
 from airterm.api.auth import build_auth
 from airterm.config import Connection
+
+
+# Lightweight module logger that writes to the TUI debug log so failures in
+# parsing remote API responses are visible to users running locally.
+_LOG_PATH = "/tmp/airterm-debug.log"
+_logger = logging.getLogger("airterm.api.client")
+if not _logger.handlers:
+    try:
+        fh = logging.FileHandler(_LOG_PATH, mode="a", encoding="utf-8")
+        fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+        _logger.addHandler(fh)
+        _logger.setLevel(logging.DEBUG)
+    except Exception:
+        pass
 
 
 class AirflowClient:
@@ -104,7 +119,27 @@ class AirflowClient:
             params=params,
         )
         resp.raise_for_status()
-        return models.TaskInstanceList(**resp.json())
+        data = resp.json()
+        try:
+            return models.TaskInstanceList(**data)
+        except Exception as e:
+            # Be forgiving: log the parsing error and attempt to build a
+            # minimal `TaskInstanceList` from the returned JSON if possible.
+            try:
+                _logger.debug(f"get_all_task_instances: parse failed: {e}")
+                keys = list(data.keys()) if isinstance(data, dict) else []
+                _logger.debug(f"get_all_task_instances: response keys={keys}")
+            except Exception:
+                pass
+            tis = []
+            raw_list = data.get("task_instances", []) if isinstance(data, dict) else []
+            for ti in raw_list:
+                try:
+                    tis.append(models.TaskInstance(**ti))
+                except Exception:
+                    # skip invalid items
+                    continue
+            return models.TaskInstanceList(task_instances=tis)
 
     async def get_task_log(
         self,
@@ -134,7 +169,24 @@ class AirflowClient:
     async def get_pools(self) -> models.PoolList:
         resp = await self._client.get("/api/v1/pools")
         resp.raise_for_status()
-        return models.PoolList(**resp.json())
+        data = resp.json()
+        try:
+            return models.PoolList(**data)
+        except Exception as e:
+            try:
+                _logger.debug(f"get_pools: parse failed: {e}")
+                keys = list(data.keys()) if isinstance(data, dict) else []
+                _logger.debug(f"get_pools: response keys={keys}")
+            except Exception:
+                pass
+            pools_raw = data.get("pools", []) if isinstance(data, dict) else []
+            pools = []
+            for p in pools_raw:
+                try:
+                    pools.append(models.Pool(**p))
+                except Exception:
+                    continue
+            return models.PoolList(pools=pools)
 
     async def get_health(self) -> models.HealthInfo:
         resp = await self._client.get("/api/v1/health")
