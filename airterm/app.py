@@ -359,6 +359,7 @@ class AirTermApp(App):
 
     async def _load_broken_summary(self):
         from datetime import datetime, timezone, timedelta
+
         try:
             client = self._client
             if not client:
@@ -372,26 +373,30 @@ class AirTermApp(App):
             for err in errors_result.import_errors:
                 lines = [ln for ln in err.stack_trace.strip().split("\n") if ln.strip()]
                 detail = lines[-1][:60] if lines else ""
-                items.append({
-                    "category": "import_error",
-                    "category_label": "import error",
-                    "item": err.filename.split("/")[-1],
-                    "detail": detail,
-                    "since": str(err.timestamp)[:16] if err.timestamp else "unknown",
-                })
+                items.append(
+                    {
+                        "category": "import_error",
+                        "category_label": "import error",
+                        "item": err.filename.split("/")[-1],
+                        "detail": detail,
+                        "since": str(err.timestamp)[:16] if err.timestamp else "unknown",
+                    }
+                )
 
             # Recent failed runs (last 24h)
             runs_result = await client.get_all_dag_runs(limit=100)
             for run in runs_result.dag_runs:
                 if run.state and run.state.value == "failed":
                     if run.end_date and run.end_date > cutoff:
-                        items.append({
-                            "category": "failed_run",
-                            "category_label": "failed run",
-                            "item": run.dag_id,
-                            "detail": run.dag_run_id[:40],
-                            "since": str(run.end_date)[:16] if run.end_date else "",
-                        })
+                        items.append(
+                            {
+                                "category": "failed_run",
+                                "category_label": "failed run",
+                                "item": run.dag_id,
+                                "detail": run.dag_run_id[:40],
+                                "since": str(run.end_date)[:16] if run.end_date else "",
+                            }
+                        )
 
             # SLA breaches: running DAGs beyond P95
             running = [r for r in runs_result.dag_runs if r.state and r.state.value == "running"]
@@ -411,13 +416,15 @@ class AirTermApp(App):
                 p95 = sorted(durations)[int(len(durations) * 0.95)]
                 if running_for > p95:
                     over_by = int(running_for - p95)
-                    items.append({
-                        "category": "sla_breach",
-                        "category_label": "SLA breach",
-                        "item": run.dag_id,
-                        "detail": f"running {int(running_for)}s (P95={int(p95)}s, +{over_by}s)",
-                        "since": str(run.start_date)[:16] if run.start_date else "",
-                    })
+                    items.append(
+                        {
+                            "category": "sla_breach",
+                            "category_label": "SLA breach",
+                            "item": run.dag_id,
+                            "detail": f"running {int(running_for)}s (P95={int(p95)}s, +{over_by}s)",
+                            "since": str(run.start_date)[:16] if run.start_date else "",
+                        }
+                    )
 
             self.screen.update_broken(items)
             self._touch_refresh()
@@ -512,6 +519,7 @@ class AirTermApp(App):
 
     async def _load_sla_misses(self):
         from datetime import datetime, timezone
+
         try:
             client = self._client
             if not client:
@@ -543,15 +551,17 @@ class AirTermApp(App):
                 sorted_d = sorted(durations)
                 p95 = sorted_d[int(len(sorted_d) * 0.95)]
                 if running_for > p95:
-                    breaches.append({
-                        "dag_id": run.dag_id,
-                        "run_id": run.dag_run_id,
-                        "state": run.state.value,
-                        "running_for": running_for,
-                        "p95": p95,
-                        "over_by": running_for - p95,
-                        "started": str(run.start_date)[:19],
-                    })
+                    breaches.append(
+                        {
+                            "dag_id": run.dag_id,
+                            "run_id": run.dag_run_id,
+                            "state": run.state.value,
+                            "running_for": running_for,
+                            "p95": p95,
+                            "over_by": running_for - p95,
+                            "started": str(run.start_date)[:19],
+                        }
+                    )
 
             self.screen.update_sla(breaches, len(running))
             self._touch_refresh()
@@ -606,12 +616,14 @@ class AirTermApp(App):
                     total_duration += duration
                 if state == "failed":
                     failure_count += 1
-                all_entries.append({
-                    "run_id": run.dag_run_id,
-                    "state": state,
-                    "duration": duration,
-                    "try_number": "",
-                })
+                all_entries.append(
+                    {
+                        "run_id": run.dag_run_id,
+                        "state": state,
+                        "duration": duration,
+                        "try_number": "",
+                    }
+                )
                 count += 1
             failure_rate = (failure_count / count * 100) if count else 0.0
             avg_duration = (total_duration / count) if count else 0.0
@@ -632,6 +644,7 @@ class AirTermApp(App):
             find_last_failure,
         )
         from airterm.metrics.sparkline import compute_sparkline
+
         try:
             client = self._client
             if not client:
@@ -642,7 +655,8 @@ class AirTermApp(App):
 
             durations = [
                 (r.end_date - r.start_date).total_seconds()
-                for r in runs if r.start_date and r.end_date
+                for r in runs
+                if r.start_date and r.end_date
             ]
             stats = compute_duration_stats(runs)
             avg_duration = stats.get("avg", 0.0)
@@ -700,12 +714,14 @@ class AirTermApp(App):
             for event in events_result.dataset_events:
                 if event.source_dag_id == dag_id:
                     produced_uris.add(event.dataset_uri)
-                    deps.append({
-                        "dag_id": dag_id,
-                        "relationship": "produces",
-                        "dataset_uri": event.dataset_uri,
-                        "last_event": str(event.created_at)[:19],
-                    })
+                    deps.append(
+                        {
+                            "dag_id": dag_id,
+                            "relationship": "produces",
+                            "dataset_uri": event.dataset_uri,
+                            "last_event": str(event.created_at)[:19],
+                        }
+                    )
 
             # Deduplicate produced datasets
             seen_produced = set()
@@ -731,12 +747,14 @@ class AirTermApp(App):
                         }
 
             for consumer_dag, info in consumer_events.items():
-                deps.append({
-                    "dag_id": consumer_dag,
-                    "relationship": "consumes",
-                    "dataset_uri": info["dataset_uri"],
-                    "last_event": info["last_event"],
-                })
+                deps.append(
+                    {
+                        "dag_id": consumer_dag,
+                        "relationship": "consumes",
+                        "dataset_uri": info["dataset_uri"],
+                        "last_event": info["last_event"],
+                    }
+                )
 
             screen.update_deps(deps, dag_id)
             self._touch_refresh()
@@ -762,10 +780,31 @@ class AirTermApp(App):
     async def _load_resource_timeline(self):
         """Build a 24-hour pool usage timeline from recent task instances."""
         from datetime import datetime, timezone, timedelta
+        import asyncio
+
         try:
             client = self._client
             if not client:
+                # If client is not configured (shouldn't normally happen), show a
+                # helpful message in the timeline screen instead of failing
+                try:
+                    self.screen.query_one("#timeline-grid").update(
+                        "[red]No Airflow client configured. Check your connection and try again.[/red]"
+                    )
+                except Exception:
+                    pass
                 return
+
+            # Wait briefly for the timeline screen to mount its widgets. Without
+            # this, a background task can run before the screen is ready and
+            # updates will silently fail. Retry a few times.
+            for _ in range(10):
+                try:
+                    # this will raise if the widget isn't mounted yet
+                    self.screen.query_one("#timeline-grid")
+                    break
+                except Exception:
+                    await asyncio.sleep(0.02)
 
             now = datetime.now(timezone.utc)
 
@@ -799,7 +838,9 @@ class AirTermApp(App):
                 if 0 <= hour_offset <= 23:
                     pool_hours[pool][hour_offset] = pool_hours[pool].get(hour_offset, 0) + 1
 
-            top_consumers = sorted(consumers.values(), key=lambda x: x["slot_minutes"], reverse=True)
+            top_consumers = sorted(
+                consumers.values(), key=lambda x: x["slot_minutes"], reverse=True
+            )
 
             self.screen.update_timeline(pool_hours, pool_capacity, top_consumers)
             self._touch_refresh()
@@ -815,6 +856,7 @@ class AirTermApp(App):
     async def _load_watchlist(self):
         """Load status for all bookmarked DAGs."""
         from airterm.metrics.aggregations import compute_duration_stats, compute_success_rate
+
         try:
             client = self._client
             if not client:
@@ -854,15 +896,17 @@ class AirTermApp(App):
 
                     sr = compute_success_rate(runs) * 100
 
-                    entries.append({
-                        "dag_id": dag_id,
-                        "state": state,
-                        "last_run": str(latest.execution_date)[:16],
-                        "duration": duration,
-                        "avg_duration": avg_str,
-                        "drift": drift,
-                        "success_rate": f"{sr:.0f}%",
-                    })
+                    entries.append(
+                        {
+                            "dag_id": dag_id,
+                            "state": state,
+                            "last_run": str(latest.execution_date)[:16],
+                            "duration": duration,
+                            "avg_duration": avg_str,
+                            "drift": drift,
+                            "success_rate": f"{sr:.0f}%",
+                        }
+                    )
                 except Exception:
                     entries.append({"dag_id": dag_id, "state": "error"})
 
@@ -876,6 +920,7 @@ class AirTermApp(App):
     def action_focus_filter(self):
         try:
             from airterm.widgets.filter_input import FilterInput
+
             filter_bar = self.screen.query_one(FilterInput)
             filter_bar.open()
         except Exception:
