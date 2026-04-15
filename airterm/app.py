@@ -469,9 +469,11 @@ class AirTermApp(App):
         try:
             client = self._client
             # Ensure the pools screen has mounted its widgets before updating
-            import asyncio
+            import asyncio, traceback
 
-            for _ in range(10):
+            print("DEBUG: _load_pools started")
+
+            for _ in range(50):
                 try:
                     self.screen.query_one("#pools-table")
                     break
@@ -487,7 +489,13 @@ class AirTermApp(App):
                     pass
                 return
 
-            pools_result = await client.get_pools()
+            try:
+                pools_result = await client.get_pools()
+            except Exception as e:
+                print("DEBUG: exception fetching pools:", e)
+                traceback.print_exc()
+                raise
+
             # Defensive: ensure pools_result has attribute 'pools'
             pools = getattr(pools_result, "pools", []) if pools_result is not None else []
             self.screen.update_pools(pools)
@@ -495,6 +503,7 @@ class AirTermApp(App):
         except Exception as e:
             # Surface the error to the pools screen so the user sees feedback
             err = str(e)[:200]
+            print("DEBUG: pools loader exception:", err)
             try:
                 self.screen.query_one("#pools-alert").update(f"[red]Pools load failed:[/red] {err}")
             except Exception:
@@ -806,6 +815,11 @@ class AirTermApp(App):
         """Build a 24-hour pool usage timeline from recent task instances."""
         from datetime import datetime, timezone, timedelta
         import asyncio
+        import traceback
+
+        # Debugging helper: print progress so users running from terminal can
+        # see what's happening when timeline/pools appear to be stuck.
+        print("DEBUG: _load_resource_timeline started")
 
         try:
             client = self._client
@@ -822,8 +836,8 @@ class AirTermApp(App):
 
             # Wait briefly for the timeline screen to mount its widgets. Without
             # this, a background task can run before the screen is ready and
-            # updates will silently fail. Retry a few times.
-            for _ in range(10):
+            # updates will silently fail. Retry a few times (up to ~1s).
+            for _ in range(50):
                 try:
                     # this will raise if the widget isn't mounted yet
                     self.screen.query_one("#timeline-grid")
@@ -835,8 +849,13 @@ class AirTermApp(App):
 
             # Fetch without date filter — rendering loop already limits to 24h.
             # Passing start_date_gte causes 400s on some Airflow versions.
-            ti_result = await client.get_all_task_instances(limit=500)
-            pools_result = await client.get_pools()
+            try:
+                ti_result = await client.get_all_task_instances(limit=500)
+                pools_result = await client.get_pools()
+            except Exception as e:
+                print("DEBUG: exception fetching timeline data:", e)
+                traceback.print_exc()
+                raise
 
             pool_capacity = {p.name: p.slots for p in pools_result.pools}
             pool_hours: dict = {}
@@ -867,10 +886,16 @@ class AirTermApp(App):
                 consumers.values(), key=lambda x: x["slot_minutes"], reverse=True
             )
 
+            print(
+                f"DEBUG: timeline fetched: pools={len(pool_hours)} consumers={len(top_consumers)}"
+            )
+
             self.screen.update_timeline(pool_hours, pool_capacity, top_consumers)
             self._touch_refresh()
         except Exception as e:
             err = str(e)[:120]
+            print("DEBUG: timeline loader exception:", err)
+            traceback.print_exc()
             self._flash_error(f"Timeline load failed: {err}")
             try:
                 self.screen.update_timeline({}, {}, [], error=err)
