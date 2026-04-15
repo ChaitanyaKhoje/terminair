@@ -60,21 +60,25 @@ class BrokenSummaryScreen(Screen):
             " [bold red]Currently Broken[/bold red]  [dim]│[/dim]  "
             "[dim]import · failed runs · SLA breaches[/dim]"
         )
-        nav = sep.join(
+        # Separate session actions (Back/Quit) from screen navigation so
+        # we don't mix session keys into the screens row. Also omit the
+        # redundant `Errors` entry since this is the Errors screen itself.
+        screens_nav = sep.join(
             [
-                bind("esc", "Back"),
-                bind("1", "Errors"),
                 bind("2", "Pools"),
                 bind("3", "Health"),
                 bind("4", "SLA"),
                 bind("5", "Time"),
-                bind("q", "Quit"),
+                bind("0", "Watchlist"),
             ]
         )
-        # Use a 'screens' label here (not 'session') — this row lists
-        # navigation keys for screens, not session-level actions.
+        session_nav = sep.join([bind("esc", "Back"), bind("q", "Quit")])
+
+        def section(label: str, keys: str) -> str:
+            return f" [dim]{label:9}[/dim] {keys}"
+
         self.query_one("#broken-header", Static).update(
-            "\n".join([title, "", f" [dim]{'screens':9}[/dim] {nav}"])
+            "\n".join([title, "", section("screens", screens_nav), section("session", session_nav)])
         )
 
     def update_broken(self, items: list):
