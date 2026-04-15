@@ -71,8 +71,10 @@ class BrokenSummaryScreen(Screen):
                 bind("q", "Quit"),
             ]
         )
+        # Use a 'screens' label here (not 'session') — this row lists
+        # navigation keys for screens, not session-level actions.
         self.query_one("#broken-header", Static).update(
-            "\n".join([title, "", f" [dim]{'session':9}[/dim] {nav}"])
+            "\n".join([title, "", f" [dim]{'screens':9}[/dim] {nav}"])
         )
 
     def update_broken(self, items: list):
