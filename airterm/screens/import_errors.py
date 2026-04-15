@@ -73,12 +73,9 @@ class ImportErrorsScreen(Screen):
         sep = " [dim]·[/dim] "
 
         def bind(key: str, desc: str) -> str:
-            return f"[cyan]{key}[/cyan] [dim]{desc}[/dim]"
+            return f"[cyan]<{key}>[/cyan] [dim]{desc}[/dim]"
 
-        title = (
-            " [bold]Import Errors[/bold]  [dim]│[/dim]  "
-            "[dim]DAG parse failures[/dim]"
-        )
+        title = " [bold]Import Errors[/bold]  [dim]│[/dim]  [dim]DAG parse failures[/dim]"
         nav = sep.join([bind("esc", "Back"), bind("q", "Quit")])
         self.query_one("#errors-header", Static).update(
             "\n".join([title, "", f" [dim]{'session':9}[/dim] {nav}"])

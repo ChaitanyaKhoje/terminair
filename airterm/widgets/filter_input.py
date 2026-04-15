@@ -71,6 +71,12 @@ class FilterInput(Widget):
             self.app.screen.query_one("DataTable").focus()
         except Exception:
             pass
+        # Notify caller that the filter bar closed (useful to cancel live fetch)
+        try:
+            if self._on_close:
+                self._on_close()
+        except Exception:
+            pass
 
     @property
     def current_value(self) -> str:

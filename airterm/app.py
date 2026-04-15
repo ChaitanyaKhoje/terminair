@@ -17,12 +17,11 @@ from airterm.config import Config
 from airterm.screens.broken_summary import BrokenSummaryScreen
 from airterm.screens.dag_deps import DagDepsScreen
 from airterm.screens.dag_detail import DagDetailScreen
-from airterm.screens.dag_graph import DAGGraphScreen
 from airterm.screens.dags import DagsScreen
 from airterm.screens.event_log import EventLogScreen
 from airterm.screens.health import HealthScreen
-from airterm.screens.import_errors import ImportErrorsScreen
 from airterm.screens.pools import PoolsScreen
+from airterm.screens.dags import DagsScreen
 from airterm.screens.recent_activity import RecentActivityScreen
 from airterm.screens.resource_timeline import ResourceTimelineScreen
 from airterm.screens.sla_misses import SlaMissScreen
@@ -42,12 +41,10 @@ class AirTermApp(App):
         "dags": DagsScreen,
         "dag_detail": DagDetailScreen,
         "task_instances": TaskInstancesScreen,
-        "dag_graph": DAGGraphScreen,
         "broken_summary": BrokenSummaryScreen,
         "recent_activity": RecentActivityScreen,
         "pools": PoolsScreen,
         "health": HealthScreen,
-        "import_errors": ImportErrorsScreen,
         "event_log": EventLogScreen,
         "task_history": TaskHistoryScreen,
         "xcom_viewer": XComViewerScreen,
@@ -62,18 +59,15 @@ class AirTermApp(App):
         Binding("ctrl+c", "quit", "Quit", priority=True),
         Binding("q", "quit", "Quit"),
         Binding("escape", "back", "Back"),
-        Binding("w", "toggle_live", "Live", priority=True),
         Binding("r", "refresh", "Refresh"),
         Binding(":", "command_palette", "Command"),
-        Binding("2", "switch_broken", "Broken"),
-        Binding("3", "switch_pools", "Pools"),
-        Binding("4", "switch_health", "Health"),
-        Binding("5", "switch_errors", "Errors"),
-        Binding("6", "switch_sla", "SLA"),
-        Binding("7", "switch_timeline", "Timeline"),
+        Binding("1", "switch_broken", "Errors"),
+        Binding("2", "switch_pools", "Pools"),
+        Binding("3", "switch_health", "Health"),
+        Binding("4", "switch_sla", "SLA"),
+        Binding("5", "switch_timeline", "Timeline"),
         Binding("0", "switch_watchlist", "Watchlist"),
         Binding("h", "view_task_history", "Task History"),
-        Binding("g", "view_graph", "Graph"),
         Binding("d", "view_deps", "Deps"),
         Binding("x", "view_xcoms", "XComs"),
     ]
@@ -209,8 +203,7 @@ class AirTermApp(App):
                 await self._load_pools()
             elif screen_id == "HealthScreen":
                 await self._load_health()
-            elif screen_id == "ImportErrorsScreen":
-                await self._load_import_errors()
+            # Import errors merged into broken summary; handled by BrokenSummaryScreen
             elif screen_id == "RecentActivityScreen":
                 await self._load_recent_activity()
             elif screen_id == "SlaMissScreen":
@@ -243,44 +236,60 @@ class AirTermApp(App):
         if self._auto_refresh_enabled:
             self._stop_watch()
 
-    def _switch_to(self, screen_name: str):
-        """Pop to DagsScreen floor, then push the target screen."""
+    def _switch_to(self, screen_name: str) -> bool:
+        """Pop to DagsScreen floor, then push the target screen.
+
+        Returns True if a switch was performed, False if already on that
+        screen (no-op).
+        """
+        # If the requested screen is already active, avoid re-switching and
+        # re-loading (user pressed the key for the current screen).
+        target_cls = self.SCREENS.get(screen_name)
+        try:
+            if target_cls and isinstance(self.screen, target_cls):
+                return False
+        except Exception:
+            # If any introspection fails, proceed with switching as before.
+            pass
+
         self._cancel_watch_on_switch()
         while len(self.screen_stack) > 2:
             self.pop_screen()
         self.push_screen(screen_name)
+        return True
 
     def action_switch_broken(self):
-        self._switch_to("broken_summary")
-        _asyncio.create_task(self._load_broken_summary())
+        if self._switch_to("broken_summary"):
+            _asyncio.create_task(self._load_broken_summary())
 
     def action_switch_pools(self):
-        self._switch_to("pools")
-        _asyncio.create_task(self._load_pools())
+        if self._switch_to("pools"):
+            _asyncio.create_task(self._load_pools())
 
     def action_switch_health(self):
-        self._switch_to("health")
-        _asyncio.create_task(self._load_health())
+        if self._switch_to("health"):
+            _asyncio.create_task(self._load_health())
 
     def action_switch_errors(self):
-        self._switch_to("import_errors")
-        _asyncio.create_task(self._load_import_errors())
+        # Errors and import-errors merged into broken summary
+        if self._switch_to("broken_summary"):
+            _asyncio.create_task(self._load_broken_summary())
 
     def action_switch_sla(self):
-        self._switch_to("sla_misses")
-        _asyncio.create_task(self._load_sla_misses())
+        if self._switch_to("sla_misses"):
+            _asyncio.create_task(self._load_sla_misses())
 
     def action_switch_timeline(self):
-        self._switch_to("resource_timeline")
-        _asyncio.create_task(self._load_resource_timeline())
+        if self._switch_to("resource_timeline"):
+            _asyncio.create_task(self._load_resource_timeline())
 
     def action_switch_watchlist(self):
-        self._switch_to("watchlist")
-        _asyncio.create_task(self._load_watchlist())
+        if self._switch_to("watchlist"):
+            _asyncio.create_task(self._load_watchlist())
 
     def action_switch_recent(self):
-        self._switch_to("recent_activity")
-        _asyncio.create_task(self._load_recent_activity())
+        if self._switch_to("recent_activity"):
+            _asyncio.create_task(self._load_recent_activity())
 
     # ── DAG-context actions (g, h, d — require dags-table selection) ─────────
 
@@ -309,12 +318,6 @@ class AirTermApp(App):
         self.push_screen("task_history")
         _asyncio.create_task(self._load_task_history(dag_id))
 
-    def action_view_graph(self):
-        dag_id = self._get_selected_dag_id()
-        if not dag_id:
-            return
-        self.push_screen("dag_graph")
-        _asyncio.create_task(self._load_dag_graph(dag_id))
 
     def action_view_deps(self):
         dag_id = self._get_selected_dag_id()
@@ -359,6 +362,7 @@ class AirTermApp(App):
 
     async def _load_broken_summary(self):
         from datetime import datetime, timezone, timedelta
+
         try:
             client = self._client
             if not client:
@@ -372,26 +376,30 @@ class AirTermApp(App):
             for err in errors_result.import_errors:
                 lines = [ln for ln in err.stack_trace.strip().split("\n") if ln.strip()]
                 detail = lines[-1][:60] if lines else ""
-                items.append({
-                    "category": "import_error",
-                    "category_label": "import error",
-                    "item": err.filename.split("/")[-1],
-                    "detail": detail,
-                    "since": str(err.timestamp)[:16] if err.timestamp else "unknown",
-                })
+                items.append(
+                    {
+                        "category": "import_error",
+                        "category_label": "import error",
+                        "item": err.filename.split("/")[-1],
+                        "detail": detail,
+                        "since": str(err.timestamp)[:16] if err.timestamp else "unknown",
+                    }
+                )
 
             # Recent failed runs (last 24h)
             runs_result = await client.get_all_dag_runs(limit=100)
             for run in runs_result.dag_runs:
                 if run.state and run.state.value == "failed":
                     if run.end_date and run.end_date > cutoff:
-                        items.append({
-                            "category": "failed_run",
-                            "category_label": "failed run",
-                            "item": run.dag_id,
-                            "detail": run.dag_run_id[:40],
-                            "since": str(run.end_date)[:16] if run.end_date else "",
-                        })
+                        items.append(
+                            {
+                                "category": "failed_run",
+                                "category_label": "failed run",
+                                "item": run.dag_id,
+                                "detail": run.dag_run_id[:40],
+                                "since": str(run.end_date)[:16] if run.end_date else "",
+                            }
+                        )
 
             # SLA breaches: running DAGs beyond P95
             running = [r for r in runs_result.dag_runs if r.state and r.state.value == "running"]
@@ -411,13 +419,15 @@ class AirTermApp(App):
                 p95 = sorted(durations)[int(len(durations) * 0.95)]
                 if running_for > p95:
                     over_by = int(running_for - p95)
-                    items.append({
-                        "category": "sla_breach",
-                        "category_label": "SLA breach",
-                        "item": run.dag_id,
-                        "detail": f"running {int(running_for)}s (P95={int(p95)}s, +{over_by}s)",
-                        "since": str(run.start_date)[:16] if run.start_date else "",
-                    })
+                    items.append(
+                        {
+                            "category": "sla_breach",
+                            "category_label": "SLA breach",
+                            "item": run.dag_id,
+                            "detail": f"running {int(running_for)}s (P95={int(p95)}s, +{over_by}s)",
+                            "since": str(run.start_date)[:16] if run.start_date else "",
+                        }
+                    )
 
             self.screen.update_broken(items)
             self._touch_refresh()
@@ -461,13 +471,47 @@ class AirTermApp(App):
     async def _load_pools(self):
         try:
             client = self._client
+            # Ensure the pools screen has mounted its widgets before updating
+            import asyncio, traceback
+
+            print("DEBUG: _load_pools started")
+
+            for _ in range(50):
+                try:
+                    self.screen.query_one("#pools-table")
+                    break
+                except Exception:
+                    await asyncio.sleep(0.02)
+
             if not client:
+                try:
+                    self.screen.query_one("#pools-alert").update(
+                        "[red]No Airflow client configured. Check your connection and try again.[/red]"
+                    )
+                except Exception:
+                    pass
                 return
-            pools_result = await client.get_pools()
-            self.screen.update_pools(pools_result.pools)
+
+            try:
+                pools_result = await client.get_pools()
+            except Exception as e:
+                print("DEBUG: exception fetching pools:", e)
+                traceback.print_exc()
+                raise
+
+            # Defensive: ensure pools_result has attribute 'pools'
+            pools = getattr(pools_result, "pools", []) if pools_result is not None else []
+            self.screen.update_pools(pools)
             self._touch_refresh()
         except Exception as e:
-            self._flash_error(f"Pools load failed: {str(e)[:80]}")
+            # Surface the error to the pools screen so the user sees feedback
+            err = str(e)[:200]
+            print("DEBUG: pools loader exception:", err)
+            try:
+                self.screen.query_one("#pools-alert").update(f"[red]Pools load failed:[/red] {err}")
+            except Exception:
+                pass
+            self._flash_error(f"Pools load failed: {err}")
 
     async def _load_health(self):
         try:
@@ -486,7 +530,13 @@ class AirTermApp(App):
             if not client:
                 return
             errors_result = await client.get_import_errors()
-            self.screen.update_errors(errors_result.import_errors)
+            # Import errors are now surfaced as part of the broken summary UI.
+            # Keep a compatibility hook: if an ImportErrorsScreen is somehow
+            # active, attempt to update it.
+            try:
+                self.screen.update_errors(errors_result.import_errors)
+            except Exception:
+                pass
             self._touch_refresh()
         except Exception as e:
             self._flash_error(f"Import errors load failed: {str(e)[:80]}")
@@ -512,6 +562,7 @@ class AirTermApp(App):
 
     async def _load_sla_misses(self):
         from datetime import datetime, timezone
+
         try:
             client = self._client
             if not client:
@@ -543,15 +594,17 @@ class AirTermApp(App):
                 sorted_d = sorted(durations)
                 p95 = sorted_d[int(len(sorted_d) * 0.95)]
                 if running_for > p95:
-                    breaches.append({
-                        "dag_id": run.dag_id,
-                        "run_id": run.dag_run_id,
-                        "state": run.state.value,
-                        "running_for": running_for,
-                        "p95": p95,
-                        "over_by": running_for - p95,
-                        "started": str(run.start_date)[:19],
-                    })
+                    breaches.append(
+                        {
+                            "dag_id": run.dag_id,
+                            "run_id": run.dag_run_id,
+                            "state": run.state.value,
+                            "running_for": running_for,
+                            "p95": p95,
+                            "over_by": running_for - p95,
+                            "started": str(run.start_date)[:19],
+                        }
+                    )
 
             self.screen.update_sla(breaches, len(running))
             self._touch_refresh()
@@ -572,20 +625,10 @@ class AirTermApp(App):
             self._flash_error(f"XCom load failed: {str(e)[:80]}")
 
     async def _load_dag_graph(self, dag_id: str):
-        try:
-            client = self._client
-            if not client:
-                return
-            task_list = await client.get_dag_tasks(dag_id)
-            tasks = [{"id": t.task_id} for t in task_list.tasks]
-            edges = []
-            for task in task_list.tasks:
-                for downstream in task.downstream_task_ids:
-                    edges.append((task.task_id, downstream))
-            self.screen.render_graph(tasks, edges)
-            self._touch_refresh()
-        except Exception as e:
-            self._flash_error(f"Graph load failed: {str(e)[:80]}")
+        # Graph functionality removed (Airflow UI provides full graph view).
+        # This method intentionally left as a no-op to preserve compatibility
+        # with any legacy calls.
+        return
 
     async def _load_task_history(self, dag_id: str):
         try:
@@ -606,12 +649,14 @@ class AirTermApp(App):
                     total_duration += duration
                 if state == "failed":
                     failure_count += 1
-                all_entries.append({
-                    "run_id": run.dag_run_id,
-                    "state": state,
-                    "duration": duration,
-                    "try_number": "",
-                })
+                all_entries.append(
+                    {
+                        "run_id": run.dag_run_id,
+                        "state": state,
+                        "duration": duration,
+                        "try_number": "",
+                    }
+                )
                 count += 1
             failure_rate = (failure_count / count * 100) if count else 0.0
             avg_duration = (total_duration / count) if count else 0.0
@@ -632,6 +677,7 @@ class AirTermApp(App):
             find_last_failure,
         )
         from airterm.metrics.sparkline import compute_sparkline
+
         try:
             client = self._client
             if not client:
@@ -642,7 +688,8 @@ class AirTermApp(App):
 
             durations = [
                 (r.end_date - r.start_date).total_seconds()
-                for r in runs if r.start_date and r.end_date
+                for r in runs
+                if r.start_date and r.end_date
             ]
             stats = compute_duration_stats(runs)
             avg_duration = stats.get("avg", 0.0)
@@ -700,12 +747,14 @@ class AirTermApp(App):
             for event in events_result.dataset_events:
                 if event.source_dag_id == dag_id:
                     produced_uris.add(event.dataset_uri)
-                    deps.append({
-                        "dag_id": dag_id,
-                        "relationship": "produces",
-                        "dataset_uri": event.dataset_uri,
-                        "last_event": str(event.created_at)[:19],
-                    })
+                    deps.append(
+                        {
+                            "dag_id": dag_id,
+                            "relationship": "produces",
+                            "dataset_uri": event.dataset_uri,
+                            "last_event": str(event.created_at)[:19],
+                        }
+                    )
 
             # Deduplicate produced datasets
             seen_produced = set()
@@ -731,12 +780,14 @@ class AirTermApp(App):
                         }
 
             for consumer_dag, info in consumer_events.items():
-                deps.append({
-                    "dag_id": consumer_dag,
-                    "relationship": "consumes",
-                    "dataset_uri": info["dataset_uri"],
-                    "last_event": info["last_event"],
-                })
+                deps.append(
+                    {
+                        "dag_id": consumer_dag,
+                        "relationship": "consumes",
+                        "dataset_uri": info["dataset_uri"],
+                        "last_event": info["last_event"],
+                    }
+                )
 
             screen.update_deps(deps, dag_id)
             self._touch_refresh()
@@ -762,17 +813,48 @@ class AirTermApp(App):
     async def _load_resource_timeline(self):
         """Build a 24-hour pool usage timeline from recent task instances."""
         from datetime import datetime, timezone, timedelta
+        import asyncio
+        import traceback
+
+        # Debugging helper: print progress so users running from terminal can
+        # see what's happening when timeline/pools appear to be stuck.
+        print("DEBUG: _load_resource_timeline started")
+
         try:
             client = self._client
             if not client:
+                # If client is not configured (shouldn't normally happen), show a
+                # helpful message in the timeline screen instead of failing
+                try:
+                    self.screen.query_one("#timeline-grid").update(
+                        "[red]No Airflow client configured. Check your connection and try again.[/red]"
+                    )
+                except Exception:
+                    pass
                 return
+
+            # Wait briefly for the timeline screen to mount its widgets. Without
+            # this, a background task can run before the screen is ready and
+            # updates will silently fail. Retry a few times (up to ~1s).
+            for _ in range(50):
+                try:
+                    # this will raise if the widget isn't mounted yet
+                    self.screen.query_one("#timeline-grid")
+                    break
+                except Exception:
+                    await asyncio.sleep(0.02)
 
             now = datetime.now(timezone.utc)
 
             # Fetch without date filter — rendering loop already limits to 24h.
             # Passing start_date_gte causes 400s on some Airflow versions.
-            ti_result = await client.get_all_task_instances(limit=500)
-            pools_result = await client.get_pools()
+            try:
+                ti_result = await client.get_all_task_instances(limit=500)
+                pools_result = await client.get_pools()
+            except Exception as e:
+                print("DEBUG: exception fetching timeline data:", e)
+                traceback.print_exc()
+                raise
 
             pool_capacity = {p.name: p.slots for p in pools_result.pools}
             pool_hours: dict = {}
@@ -799,22 +881,39 @@ class AirTermApp(App):
                 if 0 <= hour_offset <= 23:
                     pool_hours[pool][hour_offset] = pool_hours[pool].get(hour_offset, 0) + 1
 
-            top_consumers = sorted(consumers.values(), key=lambda x: x["slot_minutes"], reverse=True)
+            top_consumers = sorted(
+                consumers.values(), key=lambda x: x["slot_minutes"], reverse=True
+            )
+
+            print(
+                f"DEBUG: timeline fetched: pools={len(pool_hours)} consumers={len(top_consumers)}"
+            )
 
             self.screen.update_timeline(pool_hours, pool_capacity, top_consumers)
             self._touch_refresh()
         except Exception as e:
             err = str(e)[:120]
+            print("DEBUG: timeline loader exception:", err)
+            traceback.print_exc()
             self._flash_error(f"Timeline load failed: {err}")
             try:
+                # Prefer using the screen's helper; if that raises for some
+                # reason (widget not mounted in some environments), fall back
+                # to directly updating the widgets so the user sees feedback.
                 self.screen.update_timeline({}, {}, [], error=err)
                 self._touch_refresh()
             except Exception:
-                pass
+                try:
+                    self.screen.query_one("#timeline-grid").update(f"[red]Failed to load timeline:[/red]\n\n{err}")
+                    self.screen.query_one("#timeline-consumers").update("")
+                    self._touch_refresh()
+                except Exception:
+                    pass
 
     async def _load_watchlist(self):
         """Load status for all bookmarked DAGs."""
         from airterm.metrics.aggregations import compute_duration_stats, compute_success_rate
+
         try:
             client = self._client
             if not client:
@@ -854,15 +953,17 @@ class AirTermApp(App):
 
                     sr = compute_success_rate(runs) * 100
 
-                    entries.append({
-                        "dag_id": dag_id,
-                        "state": state,
-                        "last_run": str(latest.execution_date)[:16],
-                        "duration": duration,
-                        "avg_duration": avg_str,
-                        "drift": drift,
-                        "success_rate": f"{sr:.0f}%",
-                    })
+                    entries.append(
+                        {
+                            "dag_id": dag_id,
+                            "state": state,
+                            "last_run": str(latest.execution_date)[:16],
+                            "duration": duration,
+                            "avg_duration": avg_str,
+                            "drift": drift,
+                            "success_rate": f"{sr:.0f}%",
+                        }
+                    )
                 except Exception:
                     entries.append({"dag_id": dag_id, "state": "error"})
 
@@ -876,6 +977,7 @@ class AirTermApp(App):
     def action_focus_filter(self):
         try:
             from airterm.widgets.filter_input import FilterInput
+
             filter_bar = self.screen.query_one(FilterInput)
             filter_bar.open()
         except Exception:

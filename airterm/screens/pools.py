@@ -3,6 +3,20 @@
 from textual.app import ComposeResult
 from textual.screen import Screen
 from textual.widgets import DataTable, Static
+import logging
+import os
+
+_LOG_PATH = "/tmp/airterm-debug.log"
+_logger = logging.getLogger("airterm.pools")
+if not _logger.handlers:
+    try:
+        os.makedirs(os.path.dirname(_LOG_PATH), exist_ok=True)
+    except Exception:
+        pass
+    fh = logging.FileHandler(_LOG_PATH, mode="a", encoding="utf-8")
+    fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    _logger.addHandler(fh)
+    _logger.setLevel(logging.DEBUG)
 
 
 class PoolsScreen(Screen):
@@ -40,6 +54,13 @@ class PoolsScreen(Screen):
         )
 
     def update_pools(self, pools: list):
+        try:
+            _logger.debug(
+                f"PoolsScreen.update_pools called; pools_count={len(pools) if pools is not None else 0}"
+            )
+        except Exception:
+            pass
+
         table = self.query_one("#pools-table")
         table.clear()
         if not pools:
@@ -85,8 +106,10 @@ class PoolsScreen(Screen):
 
         if starved:
             msgs = ", ".join(f"[yellow]{name}[/yellow] ({n} tasks queued)" for name, n in starved)
-            self.query_one("#pools-alert").update(
-                f"[bold red]Pool Starvation:[/bold red] {msgs}"
-            )
+            self.query_one("#pools-alert").update(f"[bold red]Pool Starvation:[/bold red] {msgs}")
         else:
             self.query_one("#pools-alert").update("[green]All pools have capacity.[/green]")
+        try:
+            _logger.debug("PoolsScreen.update_pools finished updating widgets")
+        except Exception:
+            pass

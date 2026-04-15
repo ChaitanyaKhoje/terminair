@@ -3,6 +3,25 @@
 from textual.app import ComposeResult
 from textual.screen import Screen
 from textual.widgets import Static
+import logging
+import os
+
+
+# Ensure a simple file-based logger is available for TUI-debugging. We avoid
+# configuring root logger to prevent surprising global effects; instead use a
+# module-level logger that appends to /tmp/airterm-debug.log so logs are
+# visible even if stdout/stderr are swallowed by the TUI.
+_LOG_PATH = "/tmp/airterm-debug.log"
+_logger = logging.getLogger("airterm.resource_timeline")
+if not _logger.handlers:
+    try:
+        os.makedirs(os.path.dirname(_LOG_PATH), exist_ok=True)
+    except Exception:
+        pass
+    fh = logging.FileHandler(_LOG_PATH, mode="a", encoding="utf-8")
+    fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    _logger.addHandler(fh)
+    _logger.setLevel(logging.DEBUG)
 
 
 class ResourceTimelineScreen(Screen):
@@ -33,15 +52,28 @@ class ResourceTimelineScreen(Screen):
         yield Static("Loading timeline...", id="timeline-grid")
         yield Static("", id="timeline-consumers")
 
-    def update_timeline(self, pool_hours: dict, pool_capacity: dict, top_consumers: list, error: str = ""):
+    def update_timeline(
+        self, pool_hours: dict, pool_capacity: dict, top_consumers: list, error: str = ""
+    ):
         """
         pool_hours: {pool_name: {hour_offset: slot_count, ...}, ...}
             hour_offset 0 = now, 23 = 23 hours ago
         pool_capacity: {pool_name: total_slots}
         top_consumers: [{"dag_id": str, "slot_minutes": float, "pool": str}, ...]
         """
+        # Debug print to help trace why timeline might not update in some envs
+        try:
+            msg = f"ResourceTimelineScreen.update_timeline called; pools={len(pool_hours)} consumers={len(top_consumers)} error={'yes' if error else 'no'}"
+            print("DEBUG:", msg)
+            _logger.debug(msg)
+        except Exception:
+            # prints can fail in some TUI environments; ignore failures
+            pass
+
         if error:
-            self.query_one("#timeline-grid").update(f"[red]Failed to load timeline:[/red]\n\n{error}")
+            self.query_one("#timeline-grid").update(
+                f"[red]Failed to load timeline:[/red]\n\n{error}"
+            )
             self.query_one("#timeline-consumers").update("")
             return
 
@@ -49,9 +81,7 @@ class ResourceTimelineScreen(Screen):
         lines = []
 
         # Header with hour labels (right = now, left = 24h ago)
-        hour_labels = "".join(
-            f"{(23-h):02d}" if h % 4 == 0 else "  " for h in range(24)
-        )
+        hour_labels = "".join(f"{(23 - h):02d}" if h % 4 == 0 else "  " for h in range(24))
         lines.append(f"{'Pool':<20} {hour_labels}  Cap")
         lines.append("─" * 75)
 
@@ -81,7 +111,10 @@ class ResourceTimelineScreen(Screen):
 
         # Top consumers panel
         if top_consumers:
-            consumer_lines = ["[bold]Top Consumers (last 24h)[/bold]", "──────────────────────────────────────"]
+            consumer_lines = [
+                "[bold]Top Consumers (last 24h)[/bold]",
+                "──────────────────────────────────────",
+            ]
             for c in top_consumers[:10]:
                 slot_hrs = c["slot_minutes"] / 60
                 consumer_lines.append(
