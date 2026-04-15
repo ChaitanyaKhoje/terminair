@@ -468,13 +468,38 @@ class AirTermApp(App):
     async def _load_pools(self):
         try:
             client = self._client
+            # Ensure the pools screen has mounted its widgets before updating
+            import asyncio
+
+            for _ in range(10):
+                try:
+                    self.screen.query_one("#pools-table")
+                    break
+                except Exception:
+                    await asyncio.sleep(0.02)
+
             if not client:
+                try:
+                    self.screen.query_one("#pools-alert").update(
+                        "[red]No Airflow client configured. Check your connection and try again.[/red]"
+                    )
+                except Exception:
+                    pass
                 return
+
             pools_result = await client.get_pools()
-            self.screen.update_pools(pools_result.pools)
+            # Defensive: ensure pools_result has attribute 'pools'
+            pools = getattr(pools_result, "pools", []) if pools_result is not None else []
+            self.screen.update_pools(pools)
             self._touch_refresh()
         except Exception as e:
-            self._flash_error(f"Pools load failed: {str(e)[:80]}")
+            # Surface the error to the pools screen so the user sees feedback
+            err = str(e)[:200]
+            try:
+                self.screen.query_one("#pools-alert").update(f"[red]Pools load failed:[/red] {err}")
+            except Exception:
+                pass
+            self._flash_error(f"Pools load failed: {err}")
 
     async def _load_health(self):
         try:
