@@ -1,4 +1,4 @@
-# AirTerm
+# Terminair
 
 A k9s-style TUI for Apache Airflow — read-only terminal interface for monitoring and debugging DAGs.
 
@@ -39,13 +39,13 @@ A k9s-style TUI for Apache Airflow — read-only terminal interface for monitori
 ## Installation
 
 ```bash
-pip install airterm
+pip install terminair
 ```
 
 Or run directly:
 
 ```bash
-python3 -m airterm --url http://localhost:8080 --user admin --password admin
+python3 -m terminair --url http://localhost:8080 --user admin --password admin
 ```
 
 ## Quick Start
@@ -54,30 +54,30 @@ python3 -m airterm --url http://localhost:8080 --user admin --password admin
 
 ```bash
 # Recommended: set password via env var
-export AIRTERM_PASSWORD=admin
-python3 -m airterm --url http://localhost:8080 --user admin
+export TERMINAIR_PASSWORD=admin
+python3 -m terminair --url http://localhost:8080 --user admin
 
 # Named connection from config
-python3 -m airterm --ctx production
+python3 -m terminair --ctx production
 ```
 
 ## Authentication
 
-AirTerm supports three authentication methods:
+Terminair supports three authentication methods:
 
 ### Basic Auth (username/password)
 
 ```bash
 # Option 1: Environment variable (recommended — avoids shell history)
-export AIRTERM_PASSWORD=admin
-python3 -m airterm --url http://localhost:8080 --user admin
+export TERMINAIR_PASSWORD=admin
+python3 -m terminair --url http://localhost:8080 --user admin
 
 # Option 2: Interactive prompt (password hidden)
-python3 -m airterm --url http://localhost:8080 --user admin
+python3 -m terminair --url http://localhost:8080 --user admin
 # → Password: ********
 
 # Option 3: CLI argument (visible in process list — use only for local dev)
-python3 -m airterm --url http://localhost:8080 --user admin --password admin
+python3 -m terminair --url http://localhost:8080 --user admin --password admin
 ```
 
 ### Token Auth
@@ -85,7 +85,7 @@ python3 -m airterm --url http://localhost:8080 --user admin --password admin
 Use a config file with an environment variable reference for the token:
 
 ```yaml
-# ~/.airterm/config.yaml
+# ~/.terminair/config.yaml
 connections:
   production:
     url: https://airflow.company.com
@@ -97,12 +97,12 @@ connections:
 Then:
 ```bash
 export AIRFLOW_PROD_TOKEN=your-bearer-token
-python3 -m airterm --ctx production
+python3 -m terminair --ctx production
 ```
 
 ### Airflow API Setup
 
-AirTerm requires the Airflow REST API to be enabled. For Airflow 2.x:
+Terminair requires the Airflow REST API to be enabled. For Airflow 2.x:
 
 1. Ensure `api` is in your `airflow.cfg`:
    ```ini
@@ -110,24 +110,24 @@ AirTerm requires the Airflow REST API to be enabled. For Airflow 2.x:
    auth_backends = airflow.api.auth.backend.basic_auth
    ```
 
-2. For **MWAA** (AWS Managed Airflow): Use a web login token — AirTerm's token auth mode works with the session token from the MWAA CLI.
+2. For **MWAA** (AWS Managed Airflow): Use a web login token — Terminair's token auth mode works with the session token from the MWAA CLI.
 
 3. For **Cloud Composer** (GCP): Use `gcloud` to generate an access token:
    ```bash
    export AIRFLOW_PROD_TOKEN=$(gcloud auth print-access-token)
-   python3 -m airterm --ctx production
+   python3 -m terminair --ctx production
    ```
 
 4. For **Astronomer**: Use the Astronomer API token from the Astro CLI.
 
-> **Security note:** Avoid passing passwords as CLI arguments in shared environments — they are visible in `ps` output and shell history. Use `AIRTERM_PASSWORD` or interactive prompt instead.
+> **Security note:** Avoid passing passwords as CLI arguments in shared environments — they are visible in `ps` output and shell history. Use `TERMINAIR_PASSWORD` or interactive prompt instead.
 
 ## Layout
 
 ```
  Connection: localhost:8080    <1> DAGs  <2> Recent  <3> Pools  <4> Health  <5> Errors  <6> SLA  <7> Timeline
  User:       admin             <enter> Drill  <esc> Back  </> Filter  <w> Watch  <b> Bookmark
- AirTerm:    v0.1.0            <g> Graph  <h> History  <d> Deps  <0> Watchlist  <:> Cmd  <q> Quit
+ Terminair:    v0.1.0            <g> Graph  <h> History  <d> Deps  <0> Watchlist  <:> Cmd  <q> Quit
 ╭─ dags(5)[0] ───────────────────────────────────────────────────────────────────────╮
 │ DAG ID↑    Owner    Schedule    State     Last Run    Duration    Next Run    Active │
 │ ★ my_dag   airflow  @daily      active    2024-01-01  2m 10s      tomorrow    yes    │
@@ -174,7 +174,7 @@ AirTerm requires the Airflow REST API to be enabled. For Airflow 2.x:
 
 ## Configuration
 
-Config lives at `~/.airterm/config.yaml`:
+Config lives at `~/.terminair/config.yaml`:
 
 ```yaml
 connections:
@@ -215,15 +215,15 @@ settings:
 
 - Read-only API client: no trigger/clear/mutation methods are implemented.
 - Password and token values should be provided via environment variables or interactive prompt.
-- Debug logging is disabled by default. To opt in: `AIRTERM_DEBUG=1`.
+- Debug logging is disabled by default. To opt in: `TERMINAIR_DEBUG=1`.
 - XCom value previews are redacted by default. To show values for a trusted session:
   - set `settings.show_sensitive: true` in config, or
-  - run with `AIRTERM_SHOW_SENSITIVE=1`.
+  - run with `TERMINAIR_SHOW_SENSITIVE=1`.
 
 ## Testing
 
 ```bash
-python3 -m pytest airterm/tests/ -v
+python3 -m pytest terminair/tests/ -v
 ```
 
 ## License
