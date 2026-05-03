@@ -1,6 +1,5 @@
 """Tests to enforce read-only contract."""
 
-import pytest
 
 
 def test_client_has_no_write_methods():

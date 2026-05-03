@@ -1,11 +1,11 @@
 from datetime import datetime
 
-from airterm.screens.dag_detail import (
-    failure_count_to_style,
-    failure_count_to_block_char,
-    _failure_heatmap,
-)
 from airterm.api.models import DagRun, DagRunState
+from airterm.screens.dag_detail import (
+    _failure_heatmap,
+    failure_count_to_block_char,
+    failure_count_to_style,
+)
 
 
 def make_run(day: int, hour: int, failed: bool) -> DagRun:

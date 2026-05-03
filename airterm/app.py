@@ -1,8 +1,8 @@
 """Textual App subclass for AirTerm."""
 
 import asyncio as _asyncio
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Optional
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 from airterm.api.client import AirflowClient
 from airterm.api.poller import Poller
 from airterm.config import Config
+from airterm.logging_utils import get_logger, sanitize_error
 from airterm.screens.broken_summary import BrokenSummaryScreen
 from airterm.screens.dag_deps import DagDepsScreen
 from airterm.screens.dag_detail import DagDetailScreen
@@ -21,7 +22,6 @@ from airterm.screens.dags import DagsScreen
 from airterm.screens.event_log import EventLogScreen
 from airterm.screens.health import HealthScreen
 from airterm.screens.pools import PoolsScreen
-from airterm.screens.dags import DagsScreen
 from airterm.screens.recent_activity import RecentActivityScreen
 from airterm.screens.resource_timeline import ResourceTimelineScreen
 from airterm.screens.sla_misses import SlaMissScreen
@@ -30,8 +30,10 @@ from airterm.screens.task_instances import TaskInstancesScreen
 from airterm.screens.watchlist import WatchlistScreen
 from airterm.screens.xcom_viewer import XComViewerScreen
 from airterm.themes.dark import DARK_CSS
-from airterm.widgets.command_palette import CommandPalette, CommandExecutor
+from airterm.widgets.command_palette import CommandExecutor, CommandPalette
 from airterm.widgets.flash import FlashBar
+
+_logger = get_logger("airterm.app")
 
 
 class AirTermApp(App):
@@ -75,14 +77,14 @@ class AirTermApp(App):
     def __init__(self, config: Config, **kwargs):
         super().__init__(**kwargs)
         self._config = config
-        self._client: Optional[AirflowClient] = None
-        self._poller: Optional[Poller] = None
+        self._client: AirflowClient | None = None
+        self._poller: Poller | None = None
         self._nav_stack: list[tuple] = []
         self._watchlist: list[str] = list(config.settings.watchlist)
-        self._active_screen_context: Optional[str] = None
+        self._active_screen_context: str | None = None
         self._auto_refresh_enabled = False
-        self._last_refresh_at: Optional[datetime] = None
-        self._live_timer: Optional["Timer"] = None
+        self._last_refresh_at: datetime | None = None
+        self._live_timer: Timer | None = None
 
     def compose(self) -> ComposeResult:
         yield CommandPalette()
@@ -104,7 +106,7 @@ class AirTermApp(App):
             pass
 
     def _touch_refresh(self) -> None:
-        self._last_refresh_at = datetime.now(timezone.utc)
+        self._last_refresh_at = datetime.now(UTC)
         self._update_refresh_status()
 
     def _update_refresh_status(self) -> None:
@@ -293,7 +295,7 @@ class AirTermApp(App):
 
     # ── DAG-context actions (g, h, d — require dags-table selection) ─────────
 
-    def _get_selected_dag_id(self) -> Optional[str]:
+    def _get_selected_dag_id(self) -> str | None:
         """Get the selected DAG ID from the dags table, or None."""
         dags = getattr(self, "_cached_dags", [])
         try:
@@ -361,13 +363,13 @@ class AirTermApp(App):
     # ── Data loaders ─────────────────────────────────────────────────────────
 
     async def _load_broken_summary(self):
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta
 
         try:
             client = self._client
             if not client:
                 return
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             cutoff = now - timedelta(hours=24)
             items = []
 
@@ -472,9 +474,7 @@ class AirTermApp(App):
         try:
             client = self._client
             # Ensure the pools screen has mounted its widgets before updating
-            import asyncio, traceback
-
-            print("DEBUG: _load_pools started")
+            import asyncio
 
             for _ in range(50):
                 try:
@@ -495,8 +495,7 @@ class AirTermApp(App):
             try:
                 pools_result = await client.get_pools()
             except Exception as e:
-                print("DEBUG: exception fetching pools:", e)
-                traceback.print_exc()
+                _logger.debug("Error fetching pools: %s", sanitize_error(str(e)))
                 raise
 
             # Defensive: ensure pools_result has attribute 'pools'
@@ -505,8 +504,7 @@ class AirTermApp(App):
             self._touch_refresh()
         except Exception as e:
             # Surface the error to the pools screen so the user sees feedback
-            err = str(e)[:200]
-            print("DEBUG: pools loader exception:", err)
+            err = sanitize_error(str(e), limit=200)
             try:
                 self.screen.query_one("#pools-alert").update(f"[red]Pools load failed:[/red] {err}")
             except Exception:
@@ -561,7 +559,7 @@ class AirTermApp(App):
             self._flash_error(f"Event logs load failed: {str(e)[:80]}")
 
     async def _load_sla_misses(self):
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         try:
             client = self._client
@@ -582,7 +580,7 @@ class AirTermApp(App):
                         (run.end_date - run.start_date).total_seconds()
                     )
 
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             breaches = []
             for run in running:
                 if not run.start_date:
@@ -617,12 +615,17 @@ class AirTermApp(App):
             if not client:
                 return
             screen = self.screen
-            screen.set_context(dag_id, run_id, task_id)
+            screen.set_context(
+                dag_id,
+                run_id,
+                task_id,
+                show_sensitive=self._config.settings.show_sensitive,
+            )
             result = await client.get_xcom_entries(dag_id, run_id, task_id)
             screen.update_xcoms(result.xcom_entries)
             self._touch_refresh()
         except Exception as e:
-            self._flash_error(f"XCom load failed: {str(e)[:80]}")
+            self._flash_error(f"XCom load failed: {sanitize_error(str(e), limit=80)}")
 
     async def _load_dag_graph(self, dag_id: str):
         # Graph functionality removed (Airflow UI provides full graph view).
@@ -737,7 +740,7 @@ class AirTermApp(App):
             screen = self.screen
             screen.set_context(dag_id)
 
-            datasets_result = await client.get_datasets()
+            await client.get_datasets()
             events_result = await client.get_dataset_events()
 
             deps = []
@@ -806,19 +809,14 @@ class AirTermApp(App):
             self.screen.update_log(task_id, tail)
         except Exception as e:
             try:
-                self.screen.update_log(task_id, f"Failed to fetch log: {str(e)[:100]}")
+                self.screen.update_log(task_id, f"Failed to fetch log: {sanitize_error(str(e), limit=100)}")
             except Exception:
                 pass
 
     async def _load_resource_timeline(self):
         """Build a 24-hour pool usage timeline from recent task instances."""
-        from datetime import datetime, timezone, timedelta
         import asyncio
-        import traceback
-
-        # Debugging helper: print progress so users running from terminal can
-        # see what's happening when timeline/pools appear to be stuck.
-        print("DEBUG: _load_resource_timeline started")
+        from datetime import datetime
 
         try:
             client = self._client
@@ -844,7 +842,7 @@ class AirTermApp(App):
                 except Exception:
                     await asyncio.sleep(0.02)
 
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
 
             # Fetch without date filter — rendering loop already limits to 24h.
             # Passing start_date_gte causes 400s on some Airflow versions.
@@ -852,8 +850,7 @@ class AirTermApp(App):
                 ti_result = await client.get_all_task_instances(limit=500)
                 pools_result = await client.get_pools()
             except Exception as e:
-                print("DEBUG: exception fetching timeline data:", e)
-                traceback.print_exc()
+                _logger.debug("Error fetching timeline data: %s", sanitize_error(str(e)))
                 raise
 
             pool_capacity = {p.name: p.slots for p in pools_result.pools}
@@ -885,16 +882,10 @@ class AirTermApp(App):
                 consumers.values(), key=lambda x: x["slot_minutes"], reverse=True
             )
 
-            print(
-                f"DEBUG: timeline fetched: pools={len(pool_hours)} consumers={len(top_consumers)}"
-            )
-
             self.screen.update_timeline(pool_hours, pool_capacity, top_consumers)
             self._touch_refresh()
         except Exception as e:
-            err = str(e)[:120]
-            print("DEBUG: timeline loader exception:", err)
-            traceback.print_exc()
+            err = sanitize_error(str(e), limit=120)
             self._flash_error(f"Timeline load failed: {err}")
             try:
                 # Prefer using the screen's helper; if that raises for some
@@ -1059,14 +1050,14 @@ Press q to quit and try:
             self.styles.border = ("double", "#ff5555")
             try:
                 header = self.query_one("#header-bar")
-                title = header.update_title("PROD")
+                header.update_title("PROD")
             except Exception:
                 pass
 
-    def get_client(self) -> Optional[AirflowClient]:
+    def get_client(self) -> AirflowClient | None:
         return self._client
 
-    def get_poller(self) -> Optional[Poller]:
+    def get_poller(self) -> Poller | None:
         return self._poller
 
     def get_config(self) -> Config:

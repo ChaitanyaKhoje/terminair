@@ -1,6 +1,5 @@
 """DAG Dependency Impact screen - shows what breaks if this DAG fails."""
 
-from typing import Optional
 
 from textual.app import ComposeResult
 from textual.screen import Screen
@@ -31,7 +30,7 @@ class DagDepsScreen(Screen):
 
     def __init__(self):
         super().__init__()
-        self._dag_id: Optional[str] = None
+        self._dag_id: str | None = None
 
     def compose(self) -> ComposeResult:
         yield DataTable(id="deps-table")

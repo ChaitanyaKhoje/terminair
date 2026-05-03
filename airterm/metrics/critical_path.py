@@ -1,11 +1,10 @@
 """Critical path discovery for DAGs."""
 
 from collections import deque
-from typing import Optional
 
 
 class DAGNode:
-    def __init__(self, task_id: str, upstream: Optional[list] = None):
+    def __init__(self, task_id: str, upstream: list | None = None):
         self.task_id = task_id
         self.upstream = upstream or []
 

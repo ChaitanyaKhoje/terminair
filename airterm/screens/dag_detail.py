@@ -5,7 +5,6 @@ helpers. The heatmap was redesigned to use color-intensity backgrounds with a
 Unicode block fallback for monochrome terminals.
 """
 
-from datetime import datetime
 from statistics import quantiles
 
 from textual.app import ComposeResult

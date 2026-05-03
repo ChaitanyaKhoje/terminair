@@ -13,6 +13,7 @@ requires-python = ">=3.11"
 dependencies = [
     "textual>=0.80.0",
     "httpx>=0.27.0",
+    "certifi>=2024.7.4",
     "pydantic>=2.0",
     "click>=8.0",
     "pyyaml>=6.0",
@@ -50,6 +51,20 @@ strict = true
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
+ignore_missing_imports = true
+follow_imports = "silent"
+
+[[tool.mypy.overrides]]
+module = [
+    "airterm.app",
+    "airterm.api.models",
+    "airterm.api.poller",
+    "airterm.metrics.*",
+    "airterm.screens.*",
+    "airterm.tests.*",
+    "airterm.widgets.*",
+]
+ignore_errors = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

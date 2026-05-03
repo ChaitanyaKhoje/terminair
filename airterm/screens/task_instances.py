@@ -1,6 +1,5 @@
 """Task Instances screen - shows tasks with error summary column."""
 
-from typing import Optional
 
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -44,8 +43,8 @@ class TaskInstancesScreen(Screen):
 
     def __init__(self):
         super().__init__()
-        self._current_dag_id: Optional[str] = None
-        self._current_run_id: Optional[str] = None
+        self._current_dag_id: str | None = None
+        self._current_run_id: str | None = None
         self._log_visible = False
 
     def compose(self) -> ComposeResult:

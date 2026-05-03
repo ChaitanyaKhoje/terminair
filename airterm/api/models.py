@@ -1,13 +1,12 @@
 """Pydantic models mapping to Airflow REST API responses."""
 
 from datetime import datetime
-from enum import Enum
-from typing import Optional
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class DagRunState(str, Enum):
+class DagRunState(StrEnum):
     SUCCESS = "success"
     FAILED = "failed"
     RUNNING = "running"
@@ -17,7 +16,7 @@ class DagRunState(str, Enum):
         return self.value
 
 
-class TaskState(str, Enum):
+class TaskState(StrEnum):
     SUCCESS = "success"
     FAILED = "failed"
     RUNNING = "running"
@@ -39,7 +38,7 @@ class DagTag(BaseModel):
 
 class SchedulerHealth(BaseModel):
     status: str
-    latest_scheduler_heartbeat: Optional[str] = None
+    latest_scheduler_heartbeat: str | None = None
 
 
 class MetadbHealth(BaseModel):
@@ -69,15 +68,15 @@ class PoolList(BaseModel):
 
 class Dag(BaseModel):
     dag_id: str
-    description: Optional[str] = None
+    description: str | None = None
     owners: list[str]
     is_paused: bool
     is_active: bool = True
-    schedule_interval: Optional[str] = None
-    timetable_description: Optional[str] = None
-    next_dagrun: Optional[str] = None
+    schedule_interval: str | None = None
+    timetable_description: str | None = None
+    next_dagrun: str | None = None
     tags: list[DagTag] = []
-    file_token: Optional[str] = None
+    file_token: str | None = None
 
     def __init__(self, **data):
         # Handle schedule_interval as dict (Airflow 2.10+)
@@ -88,34 +87,34 @@ class Dag(BaseModel):
 
 class DagList(BaseModel):
     dags: list[Dag]
-    total_entries: Optional[int] = None
+    total_entries: int | None = None
 
 
 class DagRun(BaseModel):
     dag_run_id: str
     dag_id: str
     execution_date: datetime
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
+    start_date: datetime | None = None
+    end_date: datetime | None = None
     state: DagRunState
     run_type: str
     external_trigger: bool
-    conf: Optional[dict] = None
-    note: Optional[str] = None
+    conf: dict | None = None
+    note: str | None = None
 
 
 class DagRunList(BaseModel):
     dag_runs: list[DagRun]
-    total_entries: Optional[int] = None
+    total_entries: int | None = None
 
 
 class SlaMiss(BaseModel):
     task_id: str
     dag_id: str
-    execution_date: Optional[datetime] = None
+    execution_date: datetime | None = None
     email_sent: bool = False
-    timestamp: Optional[datetime] = None
-    description: Optional[str] = None
+    timestamp: datetime | None = None
+    description: str | None = None
     notification_sent: bool = False
 
 
@@ -124,18 +123,18 @@ class TaskInstance(BaseModel):
     dag_id: str
     dag_run_id: str = Field(alias="run_id")
     execution_date: datetime
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
-    queued_when: Optional[datetime] = None
-    duration: Optional[float] = None
-    state: Optional[TaskState] = None
+    start_date: datetime | None = None
+    end_date: datetime | None = None
+    queued_when: datetime | None = None
+    duration: float | None = None
+    state: TaskState | None = None
     try_number: int
     max_tries: int
     operator: str
-    queue: Optional[str] = None
+    queue: str | None = None
     pool: str
     priority_weight: int
-    sla_miss: Optional[SlaMiss] = None
+    sla_miss: SlaMiss | None = None
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -146,7 +145,7 @@ class TaskInstanceList(BaseModel):
 
 class ImportError(BaseModel):
     filename: str
-    timestamp: Optional[datetime] = None
+    timestamp: datetime | None = None
     stack_trace: str
 
 
@@ -156,7 +155,7 @@ class ImportErrorList(BaseModel):
 
 class ConfigValue(BaseModel):
     key: str
-    value: Optional[str] = None
+    value: str | None = None
 
 
 class LogResponse(BaseModel):
@@ -165,13 +164,13 @@ class LogResponse(BaseModel):
 
 class EventLog(BaseModel):
     event_log_id: int
-    event_timestamp: Optional[datetime] = None
+    event_timestamp: datetime | None = None
     event_type: str
-    task_id: Optional[str] = None
-    dag_id: Optional[str] = None
-    run_id: Optional[str] = None
-    owner: Optional[str] = None
-    extra: Optional[str] = None
+    task_id: str | None = None
+    dag_id: str | None = None
+    run_id: str | None = None
+    owner: str | None = None
+    extra: str | None = None
 
 
 class EventLogList(BaseModel):
@@ -183,28 +182,28 @@ class DAGDetailsTask(BaseModel):
     label: str
     depends_on_past: bool = False
     wait_for_downstream: bool = False
-    executor: Optional[str] = None
-    pool: Optional[str] = None
-    queue: Optional[str] = None
-    priority_weight: Optional[int] = None
+    executor: str | None = None
+    pool: str | None = None
+    queue: str | None = None
+    priority_weight: int | None = None
     operator: str
-    retries: Optional[int] = None
-    retry_delay_seconds: Optional[int] = None
-    max_retry_delay_seconds: Optional[int] = None
-    ui_color: Optional[str] = None
-    ui_fgcolor: Optional[str] = None
+    retries: int | None = None
+    retry_delay_seconds: int | None = None
+    max_retry_delay_seconds: int | None = None
+    ui_color: str | None = None
+    ui_fgcolor: str | None = None
     upstream_task_ids: list[str] = Field(default_factory=list)
 
 
 class DAGDetails(BaseModel):
     dag_id: str
     dag_display_name: str
-    description: Optional[str] = None
-    schedule_interval: Optional[str] = None
-    timetable_description: Optional[str] = None
+    description: str | None = None
+    schedule_interval: str | None = None
+    timetable_description: str | None = None
     tags: list[str] = []
-    owner: Optional[str] = None
-    default_view: Optional[str] = None
+    owner: str | None = None
+    default_view: str | None = None
     tasks: list[DAGDetailsTask] = []
 
 
@@ -223,9 +222,9 @@ class XComEntry(BaseModel):
     task_id: str
     dag_id: str
     dag_run_id: str = Field(alias="run_id", default="")
-    execution_date: Optional[datetime] = None
-    timestamp: Optional[datetime] = None
-    value: Optional[str] = None
+    execution_date: datetime | None = None
+    timestamp: datetime | None = None
+    value: str | None = None
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -238,10 +237,10 @@ class XComEntryList(BaseModel):
 class SlaMissItem(BaseModel):
     dag_id: str
     task_id: str
-    execution_date: Optional[datetime] = None
+    execution_date: datetime | None = None
     email_sent: bool = False
-    timestamp: Optional[datetime] = None
-    description: Optional[str] = None
+    timestamp: datetime | None = None
+    description: str | None = None
 
 
 class SlaMissList(BaseModel):
@@ -252,13 +251,13 @@ class SlaMissList(BaseModel):
 class Dataset(BaseModel):
     id: str
     uri: str
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class DatasetList(BaseModel):
     datasets: list[Dataset]
-    total_entries: Optional[int] = None
+    total_entries: int | None = None
 
 
 class DatasetEvent(BaseModel):
@@ -266,11 +265,11 @@ class DatasetEvent(BaseModel):
     dataset_id: str
     dataset_uri: str
     created_at: datetime
-    source_dag_id: Optional[str] = None
-    source_task_id: Optional[str] = None
-    source_run_id: Optional[str] = None
+    source_dag_id: str | None = None
+    source_task_id: str | None = None
+    source_run_id: str | None = None
 
 
 class DatasetEventList(BaseModel):
     dataset_events: list[DatasetEvent]
-    total_entries: Optional[int] = None
+    total_entries: int | None = None

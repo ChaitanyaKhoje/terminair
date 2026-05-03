@@ -1,10 +1,11 @@
 """DAGs overview screen - k9s style layout."""
 
+import asyncio as _asyncio
+
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.screen import Screen
 from textual.widgets import DataTable, Static
-import asyncio as _asyncio
 
 from airterm.widgets.filter_input import FilterInput
 

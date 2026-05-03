@@ -1,7 +1,5 @@
 """Metrics aggregation functions."""
 
-from datetime import datetime, timedelta
-from typing import Optional
 
 from airterm.api.models import DagRun, DagRunState
 
@@ -68,7 +66,7 @@ def compute_duration_drift(last_duration: float, avg_duration: float) -> float:
     return ((last_duration - avg_duration) / avg_duration) * 100
 
 
-def find_last_failure(runs: list[DagRun]) -> Optional[DagRun]:
+def find_last_failure(runs: list[DagRun]) -> DagRun | None:
     for run in runs:
         if run.state == DagRunState.FAILED:
             return run

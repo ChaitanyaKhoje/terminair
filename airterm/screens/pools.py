@@ -3,20 +3,10 @@
 from textual.app import ComposeResult
 from textual.screen import Screen
 from textual.widgets import DataTable, Static
-import logging
-import os
 
-_LOG_PATH = "/tmp/airterm-debug.log"
-_logger = logging.getLogger("airterm.pools")
-if not _logger.handlers:
-    try:
-        os.makedirs(os.path.dirname(_LOG_PATH), exist_ok=True)
-    except Exception:
-        pass
-    fh = logging.FileHandler(_LOG_PATH, mode="a", encoding="utf-8")
-    fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
-    _logger.addHandler(fh)
-    _logger.setLevel(logging.DEBUG)
+from airterm.logging_utils import get_logger
+
+_logger = get_logger("airterm.pools")
 
 
 class PoolsScreen(Screen):

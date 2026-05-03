@@ -3,25 +3,10 @@
 from textual.app import ComposeResult
 from textual.screen import Screen
 from textual.widgets import Static
-import logging
-import os
 
+from airterm.logging_utils import get_logger
 
-# Ensure a simple file-based logger is available for TUI-debugging. We avoid
-# configuring root logger to prevent surprising global effects; instead use a
-# module-level logger that appends to /tmp/airterm-debug.log so logs are
-# visible even if stdout/stderr are swallowed by the TUI.
-_LOG_PATH = "/tmp/airterm-debug.log"
-_logger = logging.getLogger("airterm.resource_timeline")
-if not _logger.handlers:
-    try:
-        os.makedirs(os.path.dirname(_LOG_PATH), exist_ok=True)
-    except Exception:
-        pass
-    fh = logging.FileHandler(_LOG_PATH, mode="a", encoding="utf-8")
-    fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
-    _logger.addHandler(fh)
-    _logger.setLevel(logging.DEBUG)
+_logger = get_logger("airterm.resource_timeline")
 
 
 class ResourceTimelineScreen(Screen):
@@ -61,13 +46,10 @@ class ResourceTimelineScreen(Screen):
         pool_capacity: {pool_name: total_slots}
         top_consumers: [{"dag_id": str, "slot_minutes": float, "pool": str}, ...]
         """
-        # Debug print to help trace why timeline might not update in some envs
         try:
             msg = f"ResourceTimelineScreen.update_timeline called; pools={len(pool_hours)} consumers={len(top_consumers)} error={'yes' if error else 'no'}"
-            print("DEBUG:", msg)
             _logger.debug(msg)
         except Exception:
-            # prints can fail in some TUI environments; ignore failures
             pass
 
         if error:

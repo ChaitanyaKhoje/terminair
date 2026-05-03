@@ -1,9 +1,8 @@
 """Test that event log loader uses correct model field names."""
 
-import pytest
 from datetime import datetime
 
-from airterm.api.models import EventLog, EventLogList
+from airterm.api.models import EventLog
 
 
 def test_event_log_model_fields():

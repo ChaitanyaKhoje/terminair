@@ -1,7 +1,7 @@
 """Background poller for Airflow API data."""
 
 import asyncio
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from airterm.api.client import AirflowClient
 
@@ -18,7 +18,7 @@ class Poller:
         self,
         resource: str,
         interval: float,
-        callback: Optional[Callable] = None,
+        callback: Callable | None = None,
         **params,
     ):
         """Start polling a resource. Replaces existing poll for same resource."""
@@ -49,7 +49,7 @@ class Poller:
         self,
         resource: str,
         interval: float,
-        callback: Optional[Callable],
+        callback: Callable | None,
         **params,
     ):
         while self._running:
@@ -71,10 +71,10 @@ class Poller:
         return None
 
 
-_default_poller: Optional[Poller] = None
+_default_poller: Poller | None = None
 
 
-def get_poller() -> Optional[Poller]:
+def get_poller() -> Poller | None:
     return _default_poller
 
 

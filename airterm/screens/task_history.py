@@ -1,6 +1,5 @@
 """Task History screen - cross run pass/fail pattern."""
 
-from typing import Optional
 
 from textual.app import ComposeResult
 from textual.screen import Screen
@@ -28,8 +27,8 @@ class TaskHistoryScreen(Screen):
 
     def __init__(self):
         super().__init__()
-        self._current_task_id: Optional[str] = None
-        self._current_dag_id: Optional[str] = None
+        self._current_task_id: str | None = None
+        self._current_dag_id: str | None = None
 
     def compose(self) -> ComposeResult:
         yield DataTable(id="history-table")

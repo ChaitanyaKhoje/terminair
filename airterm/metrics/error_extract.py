@@ -2,8 +2,6 @@
 
 import re
 from difflib import SequenceMatcher
-from typing import Optional
-
 
 ERROR_PATTERNS = [
     re.compile(r"Traceback \(most recent call last\):(.+?)(?:[\n]?\Z|\n\n|\r\n\r\n)", re.DOTALL),
@@ -85,7 +83,7 @@ def extract_error(log_content: str) -> dict:
     }
 
 
-def parse_traceback_line(line: str) -> Optional[str]:
+def parse_traceback_line(line: str) -> str | None:
     if "File " in line and ", line " in line:
         match = re.search(r'File "([^"]+)", line (\d+)', line)
         if match:

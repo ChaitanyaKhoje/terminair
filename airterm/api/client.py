@@ -1,27 +1,14 @@
 """Read-only async HTTP client for the Airflow REST API."""
 
-from typing import Dict, Optional
 
 import httpx
-import logging
 
 from airterm.api import models
 from airterm.api.auth import build_auth
 from airterm.config import Connection
+from airterm.logging_utils import get_logger
 
-
-# Lightweight module logger that writes to the TUI debug log so failures in
-# parsing remote API responses are visible to users running locally.
-_LOG_PATH = "/tmp/airterm-debug.log"
-_logger = logging.getLogger("airterm.api.client")
-if not _logger.handlers:
-    try:
-        fh = logging.FileHandler(_LOG_PATH, mode="a", encoding="utf-8")
-        fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
-        _logger.addHandler(fh)
-        _logger.setLevel(logging.DEBUG)
-    except Exception:
-        pass
+_logger = get_logger("airterm.api.client")
 
 
 class AirflowClient:
@@ -44,8 +31,8 @@ class AirflowClient:
         self,
         limit: int = 100,
         offset: int = 0,
-        tags: Optional[str] = None,
-        owners: Optional[str] = None,
+        tags: str | None = None,
+        owners: str | None = None,
     ) -> models.DagList:
         params = {"limit": limit, "offset": offset}
         if tags:
@@ -79,7 +66,7 @@ class AirflowClient:
         self,
         limit: int = 50,
         order_by: str = "-end_date",
-        end_date_gte: Optional[str] = None,
+        end_date_gte: str | None = None,
     ) -> models.DagRunList:
         params = {"limit": limit, "order_by": order_by}
         if end_date_gte:
@@ -101,13 +88,13 @@ class AirflowClient:
 
     async def get_all_task_instances(
         self,
-        start_date_gte: Optional[str] = None,
-        end_date_gte: Optional[str] = None,
-        end_date_lte: Optional[str] = None,
+        start_date_gte: str | None = None,
+        end_date_gte: str | None = None,
+        end_date_lte: str | None = None,
         limit: int = 500,
     ) -> models.TaskInstanceList:
         """Fetch task instances across all DAGs (bulk endpoint)."""
-        params: Dict[str, str] = {"limit": str(limit)}
+        params: dict[str, str] = {"limit": str(limit)}
         if start_date_gte:
             params["start_date_gte"] = start_date_gte
         if end_date_gte:

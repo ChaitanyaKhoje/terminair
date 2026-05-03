@@ -1,15 +1,16 @@
 """Tests for metrics engine."""
 
-import pytest
 from datetime import datetime
 
+import pytest
+
 from airterm.metrics.aggregations import (
+    compute_duration_stats,
     compute_streak,
     compute_success_rate,
-    compute_duration_stats,
 )
-from airterm.metrics.sparkline import compute_sparkline, render_pattern
 from airterm.metrics.error_extract import extract_error
+from airterm.metrics.sparkline import compute_sparkline, render_pattern
 
 
 @pytest.fixture

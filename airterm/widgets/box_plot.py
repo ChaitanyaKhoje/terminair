@@ -1,6 +1,7 @@
 """BoxPlot widget - visualizes statistical distribution of durations."""
 
 from statistics import quantiles
+
 from textual.widget import Widget
 from textual.widgets import Static
 

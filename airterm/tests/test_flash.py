@@ -1,6 +1,6 @@
 """Tests for flash message widget."""
 
-from airterm.widgets.flash import FlashMessage, FlashLevel
+from airterm.widgets.flash import FlashLevel, FlashMessage
 
 
 def test_flash_message_creation():

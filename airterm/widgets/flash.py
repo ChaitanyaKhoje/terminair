@@ -1,13 +1,13 @@
 """Flash message widget — k9s-inspired status feedback."""
 
-from enum import Enum
 from dataclasses import dataclass, field
+from enum import StrEnum
 from time import monotonic
 
 from textual.widgets import Static
 
 
-class FlashLevel(str, Enum):
+class FlashLevel(StrEnum):
     INFO = "info"
     WARN = "warn"
     ERROR = "error"

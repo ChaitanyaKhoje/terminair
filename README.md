@@ -193,6 +193,7 @@ connections:
 settings:
   default_connection: default
   refresh_interval: 5        # seconds between auto-refresh ticks
+  show_sensitive: false      # default: hide XCom value previews
   watchlist:
     - my_critical_dag
     - daily_revenue_pipeline
@@ -207,8 +208,17 @@ settings:
 
 ## Requirements
 
-- Python 3.9+
+- Python 3.11+
 - Airflow 2.0+ with REST API enabled
+
+## Security & Privacy Defaults
+
+- Read-only API client: no trigger/clear/mutation methods are implemented.
+- Password and token values should be provided via environment variables or interactive prompt.
+- Debug logging is disabled by default. To opt in: `AIRTERM_DEBUG=1`.
+- XCom value previews are redacted by default. To show values for a trusted session:
+  - set `settings.show_sensitive: true` in config, or
+  - run with `AIRTERM_SHOW_SENSITIVE=1`.
 
 ## Testing
 

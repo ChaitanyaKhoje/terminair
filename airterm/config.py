@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Annotated, Literal, Optional, Union
+from typing import Annotated, Literal
 
 import yaml
 from pydantic import BaseModel, Field
@@ -24,7 +24,7 @@ class ConnectionAuthToken(BaseModel):
 class Connection(BaseModel):
     url: str
     auth: Annotated[
-        Union[ConnectionAuthBasic, ConnectionAuthToken],
+        ConnectionAuthBasic | ConnectionAuthToken,
         Field(discriminator="type"),
     ]
 
@@ -38,6 +38,7 @@ class Settings(BaseModel):
     confirm_actions: bool = True
     timestamp_format: str = "relative"
     watchlist: list = []
+    show_sensitive: bool = False
 
 
 
@@ -47,7 +48,7 @@ class Config(BaseModel):
     keybindings: dict[str, str] = {}
 
     @classmethod
-    def load(cls, path: Optional[Path] = None) -> Config:
+    def load(cls, path: Path | None = None) -> Config:
         if path is None:
             xdg_config = os.environ.get("XDG_CONFIG_HOME")
             if xdg_config:
@@ -61,7 +62,12 @@ class Config(BaseModel):
         with open(path) as f:
             raw = yaml.safe_load(f) or {}
 
-        return cls(**cls._expand_env_vars(raw))
+        expanded = cls._expand_env_vars(raw)
+        settings = expanded.setdefault("settings", {})
+        if "show_sensitive" not in settings:
+            env_sensitive = os.environ.get("AIRTERM_SHOW_SENSITIVE", "").strip().lower()
+            settings["show_sensitive"] = env_sensitive in {"1", "true", "yes", "on"}
+        return cls(**expanded)
 
     @classmethod
     def _expand_env_vars(cls, data: dict) -> dict:
@@ -78,13 +84,13 @@ class Config(BaseModel):
 
 
 class CLIConfig(BaseModel):
-    url: Optional[str] = None
-    user: Optional[str] = None
-    password: Optional[str] = None
-    ctx: Optional[str] = None
-    config_path: Optional[Path] = None
-    dag: Optional[str] = None
-    refresh: Optional[int] = None
+    url: str | None = None
+    user: str | None = None
+    password: str | None = None
+    ctx: str | None = None
+    config_path: Path | None = None
+    dag: str | None = None
+    refresh: int | None = None
     version: bool = False
     help: bool = Field(default=False, alias="help")
 
