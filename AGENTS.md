@@ -3,8 +3,19 @@
 ## Quick Commands
 
 ```bash
+# Install local dev dependencies
+make setup
+
+# Start the demo Airflow stack and run Terminair against it
+make demo
+
+# Start/stop Airflow only
+make airflow-up
+make airflow-down
+
 # Run the app
-python3 -m terminair --url http://localhost:8080 --user admin --password admin
+export TERMINAIR_PASSWORD=admin
+python3 -m terminair --url http://localhost:8080 --user admin
 
 # Run tests
 python3 -m pytest terminair/tests/ -v
@@ -19,6 +30,8 @@ python3 -m terminair --version
 - **Entry point**: `terminair.cli:main` (via `python3 -m terminair`)
 - **App class**: `terminair.app.TerminairApp` (Textual App subclass)
 - **API client**: `terminair.api.client.AirflowClient` (GET only - no write methods)
+- **Config**: `terminair.config.Config` plus `merge_configs()` for CLI and file overrides
+- **Main screens**: `dags`, `broken_summary`, `pools`, `health`, `sla_misses`, `resource_timeline`, `watchlist`, `recent_activity`, `task_history`, `task_instances`, `dag_deps`, `xcom_viewer`
 
 ## Critical Constraints
 
@@ -36,23 +49,23 @@ python3 -m terminair --version
 
 ```
 terminair/
-├── api/           # HTTP client, models, poller
-├── metrics/       # aggregations, sparkline, error_extract
-├── screens/       # Textual Screen classes
-├── widgets/       # reusable UI components
-├── themes/        # CSS themes
-└── tests/         # 8 tests (all passing)
+├── api/            # HTTP client, models, poller, auth
+├── metrics/        # aggregations, critical path, sparkline, error extraction
+├── screens/        # Textual Screen classes
+├── themes/         # CSS themes
+├── widgets/        # reusable UI components
+└── tests/         # pytest modules
 ```
 
 ## Important Files
 
-- `terminair_design_plan_v3.md` - implementation spec
 - `pyproject.toml` - dependencies, CLI entry, Ruff/mypy config
 - `terminair/config.py` - config loading, CLI merging
+- `README.md` - user-facing run, install, and navigation docs
 
 ## Dependencies
 
-Core: textual, httpx, pydantic, click, pyyaml
+Core: textual, httpx, pydantic, click, pyyaml, rich
 Dev: pytest, ruff (lint), mypy
 
 ## Common Issues Fixed

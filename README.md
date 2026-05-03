@@ -1,88 +1,77 @@
 # Terminair
 
-A k9s-style TUI for Apache Airflow — read-only terminal interface for monitoring and debugging DAGs.
+A read-only k9s-style TUI for Apache Airflow.
 
-## Features
+## What It Shows
 
-### Navigation & Views
-- **DAGs overview** — All DAGs with status, schedule, owner, next run, active state
-- **Recent Activity** — Feed of the latest DAG runs across all DAGs
-- **Run History** — Per-DAG run list with duration, drift vs average, error column
-- **Task Instances** — Task states for a specific run, sorted by priority (failed first)
-- **Task History** — Cross-run pass/fail pattern to identify flaky tasks
-- **DAG Graph** — ASCII dependency graph with critical path highlighted (★)
-- **DAG Dependencies** — Dataset impact view: what upstream DAGs produce, what downstream DAGs consume
-- **Pools** — Slot utilization bars + pool starvation / contention alerts
-- **Health** — Scheduler and metadb status
-- **Import Errors** — DAG parse errors with timestamps
-- **SLA Miss Tracker** — Running DAGs that have exceeded their P95 duration
-- **Resource Timeline** — 24-hour ASCII heatmap of pool slot usage with top consumer DAGs
-- **XCom Viewer** — XCom key/value inspector for a task instance
-- **Watchlist** — Bookmarked DAGs with status, duration drift, and success rate
+- DAG overview with state, owner, schedule, next run, and bookmark markers
+- Combined errors view for failed runs and import errors
+- Pools, health, SLA misses, resource timeline, and watchlist
+- DAG drill-in with run history, task instances, task history, dataset dependencies, and XComs
+- Read-only API access only; no triggers, clears, or other write actions
 
-### Analytics & Diagnostics
-- **Run metrics panel** — Success rate, avg/P95 duration, failure streak, sparkline trend
-- **Box plot distribution** — `[──├─●──┤──]` showing p50/p75/p95 over last 50 runs
-- **Failure heatmap** — 7×24 grid (days × hours) showing when failures cluster
-- **Queue latency column** — Time from task queued to task started (identifies worker saturation)
-- **SLA miss column** — `⚠ SLA` indicator on task instances that breached their SLA
-- **Task log snippet** — Last 30 lines of task log inline, no browser needed
-- **Critical path** — Longest dependency chain highlighted in DAG graph
+## Install
 
-### Interaction
-- **Live filter** — `/` to filter by DAG ID with live results
-- **Auto-refresh (watch mode)** — `w` to toggle live polling; `[LIVE]` indicator in footer
-- **Bookmarks** — `b` to bookmark/unbookmark a DAG; persisted to config
-- **Command palette** — `:` for quick navigation and commands
-- **Strictly read-only** — Safe to point at production; no writes, no triggers
-
-## Installation
+For local development:
 
 ```bash
-pip install terminair
+make setup
 ```
 
-Or run directly:
+For runtime-only use:
 
 ```bash
-python3 -m terminair --url http://localhost:8080 --user admin --password admin
+python3.11 -m venv .venv
+.venv/bin/python -m pip install -e .
 ```
 
-## Quick Start
+## Run
 
-**Requires a running Airflow instance.**
+The app needs a running Airflow instance with the REST API enabled.
+
+For a zero-setup demo, `make demo` will clone the public example Airflow repo into `.demo/airflow-dag-template`, start its Docker stack, and then launch Terminair against it.
 
 ```bash
-# Recommended: set password via env var
+# Recommended: keep the password out of shell history
 export TERMINAIR_PASSWORD=admin
 python3 -m terminair --url http://localhost:8080 --user admin
+```
 
-# Named connection from config
+You can also use a named connection from config:
+
+```bash
 python3 -m terminair --ctx production
+```
+
+Helpful commands:
+
+```bash
+make help
+make setup
+make airflow-up
+make demo
+.venv/bin/python -m terminair --help
+.venv/bin/python -m terminair --version
 ```
 
 ## Authentication
 
-Terminair supports three authentication methods:
-
-### Basic Auth (username/password)
+Basic auth is the most common setup:
 
 ```bash
-# Option 1: Environment variable (recommended — avoids shell history)
+# Option 1: environment variable
 export TERMINAIR_PASSWORD=admin
 python3 -m terminair --url http://localhost:8080 --user admin
 
-# Option 2: Interactive prompt (password hidden)
+# Option 2: interactive prompt
 python3 -m terminair --url http://localhost:8080 --user admin
-# → Password: ********
+# Password is hidden when prompted.
 
-# Option 3: CLI argument (visible in process list — use only for local dev)
+# Option 3: CLI argument for local development only
 python3 -m terminair --url http://localhost:8080 --user admin --password admin
 ```
 
-### Token Auth
-
-Use a config file with an environment variable reference for the token:
+Token auth works through config files and environment substitution:
 
 ```yaml
 # ~/.terminair/config.yaml
@@ -94,87 +83,16 @@ connections:
       token: ${AIRFLOW_PROD_TOKEN}
 ```
 
-Then:
 ```bash
 export AIRFLOW_PROD_TOKEN=your-bearer-token
 python3 -m terminair --ctx production
 ```
 
-### Airflow API Setup
-
-Terminair requires the Airflow REST API to be enabled. For Airflow 2.x:
-
-1. Ensure `api` is in your `airflow.cfg`:
-   ```ini
-   [api]
-   auth_backends = airflow.api.auth.backend.basic_auth
-   ```
-
-2. For **MWAA** (AWS Managed Airflow): Use a web login token — Terminair's token auth mode works with the session token from the MWAA CLI.
-
-3. For **Cloud Composer** (GCP): Use `gcloud` to generate an access token:
-   ```bash
-   export AIRFLOW_PROD_TOKEN=$(gcloud auth print-access-token)
-   python3 -m terminair --ctx production
-   ```
-
-4. For **Astronomer**: Use the Astronomer API token from the Astro CLI.
-
-> **Security note:** Avoid passing passwords as CLI arguments in shared environments — they are visible in `ps` output and shell history. Use `TERMINAIR_PASSWORD` or interactive prompt instead.
-
-## Layout
-
-```
- Connection: localhost:8080    <1> DAGs  <2> Recent  <3> Pools  <4> Health  <5> Errors  <6> SLA  <7> Timeline
- User:       admin             <enter> Drill  <esc> Back  </> Filter  <w> Watch  <b> Bookmark
- Terminair:    v0.1.0            <g> Graph  <h> History  <d> Deps  <0> Watchlist  <:> Cmd  <q> Quit
-╭─ dags(5)[0] ───────────────────────────────────────────────────────────────────────╮
-│ DAG ID↑    Owner    Schedule    State     Last Run    Duration    Next Run    Active │
-│ ★ my_dag   airflow  @daily      active    2024-01-01  2m 10s      tomorrow    yes    │
-│ ...                                                                                  │
-╰──────────────────────────────────────────────────────────────────────────────────────╯
-  <dags>  [LIVE]
-```
-
-## Keybindings
-
-| Key | Action |
-|-----|--------|
-| `1` | DAGs overview |
-| `2` | Recent activity |
-| `3` | Pools |
-| `4` | Health |
-| `5` | Import errors |
-| `6` | SLA Miss Tracker |
-| `7` | Resource Timeline (24h pool usage) |
-| `0` | Watchlist (bookmarked DAGs) |
-| `Enter` | Drill into selected DAG |
-| `Esc` | Back / clear filter |
-| `/` | Live filter by DAG ID |
-| `w` | Toggle auto-refresh (LIVE mode) |
-| `b` | Bookmark / unbookmark selected DAG |
-| `g` | DAG dependency graph |
-| `h` | Task history (cross-run pattern) |
-| `d` | DAG dependency impact view |
-| `x` | XCom viewer (from Task Instances) |
-| `l` | Task log snippet (from Task Instances) |
-| `:` | Command palette |
-| `q` | Quit |
-
-## Commands
-
-```
-:dag daily_orders     Jump to DAG
-:pools                Switch to pools
-:health               Switch to health
-:ctx production       Switch connection
-:filter state=failed  Filter view
-:export json          Export current view
-```
-
 ## Configuration
 
-Config lives at `~/.terminair/config.yaml`:
+Config is loaded from `~/.terminair/config.yaml`, or from `$XDG_CONFIG_HOME/terminair/config.yaml` when `XDG_CONFIG_HOME` is set.
+
+Supported settings in the current build:
 
 ```yaml
 connections:
@@ -184,41 +102,70 @@ connections:
       type: basic
       username: admin
       password: admin
-  production:
-    url: https://airflow.company.com
-    auth:
-      type: token
-      token: ${AIRFLOW_PROD_TOKEN}
 
 settings:
   default_connection: default
-  refresh_interval: 5        # seconds between auto-refresh ticks
-  show_sensitive: false      # default: hide XCom value previews
   watchlist:
     - my_critical_dag
     - daily_revenue_pipeline
+  show_sensitive: false
 ```
 
-## Design Principles
+Notes:
 
-1. **Read-only first** — No triggers, clears, or state changes. Safe for production.
-2. **Debugging focused** — Every screen answers a specific operational question.
-3. **Sub-second navigation** — Background polling, cached state.
-4. **Zero infrastructure** — Connects via Airflow REST API, no agents or sidecars.
+- `show_sensitive: true` or `TERMINAIR_SHOW_SENSITIVE=1` reveals XCom previews.
+- Environment-variable placeholders like `${AIRFLOW_PROD_TOKEN}` are expanded on load.
+- `--refresh` overrides the configured refresh interval.
 
-## Requirements
+## Navigation
 
-- Python 3.11+
-- Airflow 2.0+ with REST API enabled
+From the DAGs screen:
 
-## Security & Privacy Defaults
+| Key | Action |
+|-----|--------|
+| `1` | Errors view |
+| `2` | Pools |
+| `3` | Health |
+| `4` | SLA misses |
+| `5` | Resource timeline |
+| `0` | Watchlist |
+| `Enter` | Drill into the selected DAG |
+| `Esc` | Back / clear filter |
+| `/` | Filter the DAG list |
+| `r` | Refresh current screen |
+| `b` | Bookmark / unbookmark selected DAG |
+| `w` | Toggle wrapped columns in the DAG table |
+| `h` | Task history |
+| `d` | Dataset dependencies |
+| `x` | XCom viewer |
+| `:` | Command palette |
+| `q` / `Ctrl+C` | Quit |
 
-- Read-only API client: no trigger/clear/mutation methods are implemented.
-- Password and token values should be provided via environment variables or interactive prompt.
-- Debug logging is disabled by default. To opt in: `TERMINAIR_DEBUG=1`.
-- XCom value previews are redacted by default. To show values for a trusted session:
-  - set `settings.show_sensitive: true` in config, or
-  - run with `TERMINAIR_SHOW_SENSITIVE=1`.
+Command palette shortcuts currently wired in the app:
+
+- `:errors`
+- `:pools`
+- `:health`
+- `:recent`
+
+## Airflow Setup
+
+Terminair requires the Airflow REST API to be enabled. For Airflow 2.x, make sure `airflow.cfg` includes:
+
+```ini
+[api]
+auth_backends = airflow.api.auth.backend.basic_auth
+```
+
+The demo workflow clones a local cache of the example Airflow stack under `.demo/airflow-dag-template`. Its Docker Compose setup creates an `admin/admin` account, a few pools, and sample DAGs that exercise the UI.
+
+For managed Airflow environments, use the token auth flow above and point Terminair at the right connection.
+
+## Security
+
+- Read-only API client: no trigger, clear, patch, or delete methods are implemented.
+- Prefer environment variables or interactive prompts for secrets.
+- Debug logging is disabled by default. Set `TERMINAIR_DEBUG=1` to enable it.
 
 ## Testing
 
