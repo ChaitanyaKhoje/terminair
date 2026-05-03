@@ -53,6 +53,7 @@ Thumbs.db
 # Airflow specific (if running locally)
 airflow.db
 logs/
+.demo/
 
 # Ruff
 .ruff_cache/
