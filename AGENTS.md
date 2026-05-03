@@ -1,28 +1,28 @@
-# AirTerm Agent Instructions
+# Terminair Agent Instructions
 
 ## Quick Commands
 
 ```bash
 # Run the app
-python3 -m airterm --url http://localhost:8080 --user admin --password admin
+python3 -m terminair --url http://localhost:8080 --user admin --password admin
 
 # Run tests
-python3 -m pytest airterm/tests/ -v
+python3 -m pytest terminair/tests/ -v
 
 # CLI help
-python3 -m airterm --help
-python3 -m airterm --version
+python3 -m terminair --help
+python3 -m terminair --version
 ```
 
 ## Key Architecture
 
-- **Entry point**: `airterm.cli:main` (via `python3 -m airterm`)
-- **App class**: `airterm.app.AirTermApp` (Textual App subclass)
-- **API client**: `airterm.api.client.AirflowClient` (GET only - no write methods)
+- **Entry point**: `terminair.cli:main` (via `python3 -m terminair`)
+- **App class**: `terminair.app.TerminairApp` (Textual App subclass)
+- **API client**: `terminair.api.client.AirflowClient` (GET only - no write methods)
 
 ## Critical Constraints
 
-1. **Read-only enforcement**: API client has NO POST/PATCH/DELETE methods. Test at `airterm/tests/test_read_only.py`.
+1. **Read-only enforcement**: API client has NO POST/PATCH/DELETE methods. Test at `terminair/tests/test_read_only.py`.
 
 2. **Textual 8.x API quirks** (not obvious from docs):
    - `Static(id=...)` not valid - use `Static(); widget.id = "foo"` after creation
@@ -35,7 +35,7 @@ python3 -m airterm --version
 ## Project Structure
 
 ```
-airterm/
+terminair/
 ├── api/           # HTTP client, models, poller
 ├── metrics/       # aggregations, sparkline, error_extract
 ├── screens/       # Textual Screen classes
@@ -46,9 +46,9 @@ airterm/
 
 ## Important Files
 
-- `airterm_design_plan_v3.md` - implementation spec
+- `terminair_design_plan_v3.md` - implementation spec
 - `pyproject.toml` - dependencies, CLI entry, Ruff/mypy config
-- `airterm/config.py` - config loading, CLI merging
+- `terminair/config.py` - config loading, CLI merging
 
 ## Dependencies
 

@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "airterm"
+name = "terminair"
 version = "0.1.0"
 description = "A k9s-style TUI for Apache Airflow"
 readme = "README.md"
@@ -32,7 +32,7 @@ dev = [
 ]
 
 [project.scripts]
-airterm = "airterm.cli:main"
+terminair = "terminair.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -56,16 +56,16 @@ follow_imports = "silent"
 
 [[tool.mypy.overrides]]
 module = [
-    "airterm.app",
-    "airterm.api.models",
-    "airterm.api.poller",
-    "airterm.metrics.*",
-    "airterm.screens.*",
-    "airterm.tests.*",
-    "airterm.widgets.*",
+    "terminair.app",
+    "terminair.api.models",
+    "terminair.api.poller",
+    "terminair.metrics.*",
+    "terminair.screens.*",
+    "terminair.tests.*",
+    "terminair.widgets.*",
 ]
 ignore_errors = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["airterm/tests"]
+testpaths = ["terminair/tests"]

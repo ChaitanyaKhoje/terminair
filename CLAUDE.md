@@ -1,18 +1,18 @@
-# AirTerm — Claude Code Guide
+# Terminair — Claude Code Guide
 
 ## What This Is
 
-AirTerm is a **read-only** k9s-style TUI for Apache Airflow. It connects to any Airflow instance via the REST API and provides instant navigation across DAGs, runs, tasks, pools, and health — no writes, no log viewer, no browser needed.
+Terminair is a **read-only** k9s-style TUI for Apache Airflow. It connects to any Airflow instance via the REST API and provides instant navigation across DAGs, runs, tasks, pools, and health — no writes, no log viewer, no browser needed.
 
 ## Running Locally
 
 ```bash
 # Recommended: set password via env var
-export AIRTERM_PASSWORD=admin
-python3 -m airterm --url http://localhost:8080 --user admin
+export TERMINAIR_PASSWORD=admin
+python3 -m terminair --url http://localhost:8080 --user admin
 
 # Or with interactive prompt
-python3 -m airterm --url http://localhost:8080 --user admin
+python3 -m terminair --url http://localhost:8080 --user admin
 # → Password: ********
 ```
 
@@ -24,9 +24,9 @@ A local Airflow instance with example DAGs is used for development:
 ## Architecture
 
 ```
-airterm/
-  app.py               # AirTermApp (Textual App) — routing, global bindings, screen stack
-  cli.py               # Click entry point → resolves credentials → runs AirTermApp
+terminair/
+  app.py               # TerminairApp (Textual App) — routing, global bindings, screen stack
+  cli.py               # Click entry point → resolves credentials → runs TerminairApp
   config.py            # Config / ConnectionSettings model (Pydantic)
   api/
     client.py          # AirflowClient — all REST calls (GET only)
@@ -121,7 +121,7 @@ Each pushed Screen owns its own chrome: the header (3-line info + key hints), th
 
 ## Adding a New Screen
 
-1. Create `airterm/screens/my_screen.py` — subclass `Screen`, set `SCROLLABLE = False`, compose with a 3-line header Static, a DataTable with border-title, FilterInput, and a footer Static.
+1. Create `terminair/screens/my_screen.py` — subclass `Screen`, set `SCROLLABLE = False`, compose with a 3-line header Static, a DataTable with border-title, FilterInput, and a footer Static.
 2. Register in `app.py` `SCREENS` dict.
 3. Add a number-key binding and a `action_switch_my_screen()` method that calls `self._switch_to("my_screen")` then `_asyncio.create_task(self._load_my_screen())`.
 4. Add `_load_my_screen()` async method in `app.py` — wrap the body in `try/except Exception as e: self._flash_error(...)`.
@@ -130,7 +130,7 @@ Each pushed Screen owns its own chrome: the header (3-line info + key hints), th
 ## Tests
 
 ```bash
-python3 -m pytest airterm/tests/ -v -p no:ddtrace -p no:zauthz
+python3 -m pytest terminair/tests/ -v -p no:ddtrace -p no:zauthz
 ```
 
-Tests are in `airterm/tests/`. The `conftest.py` provides fixtures for config and mock API data.
+Tests are in `terminair/tests/`. The `conftest.py` provides fixtures for config and mock API data.
