@@ -12,7 +12,7 @@ Brownfield repositioning of an Airflow TUI into a dbt model intelligence tool. T
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Cleanup** - Remove all deprecated Airflow screens, modules, and tests — clean slate for dbt work
+- [x] **Phase 1: Cleanup** - Remove all deprecated Airflow screens, modules, and tests — clean slate for dbt work (completed 2026-05-14)
 - [ ] **Phase 2: dbt Data Layer** - Build terminair/dbt/ package with full unit coverage and fixture files; no screens yet
 - [ ] **Phase 3: Config + CLI Extension** - Extend config.py with DbtConfig/SnowflakeConfig and add --manifest/--run-results/--dag/--demo CLI flags
 - [ ] **Phase 4: Screens** - Build all four new dbt screens wired to StateAggregator/MockDataProvider; replace app.py routing
@@ -35,7 +35,7 @@ Plans:
 - [x] 01-01-PLAN.md — Delete all deprecated Airflow screen files, API modules, metrics modules, and test files
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 01-02-PLAN.md — Update app.py, __init__.py, pyproject.toml, and test_read_only.py to remove all Airflow references
+- [x] 01-02-PLAN.md — Update app.py, __init__.py, pyproject.toml, and test_read_only.py to remove all Airflow references
 
 ### Phase 2: dbt Data Layer
 **Goal**: The terminair/dbt/ package exists with all seven modules fully implemented and tested against fixture files — screens can be written against a known-good data contract
@@ -93,7 +93,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Cleanup | 1/2 | In Progress | - |
+| 1. Cleanup | 2/2 | Complete   | 2026-05-14 |
 | 2. dbt Data Layer | 0/TBD | Not started | - |
 | 3. Config + CLI Extension | 0/TBD | Not started | - |
 | 4. Screens | 0/TBD | Not started | - |
