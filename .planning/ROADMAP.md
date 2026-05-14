@@ -61,7 +61,7 @@ Plans:
 - [x] 02-04-PLAN.md — Implement StateAggregator, RegressionAnalyzer, and MockDataProvider
 
 **Wave 4** *(blocked on all prior waves)*
-- [ ] 02-05-PLAN.md — Create test package and all four test files; run full suite
+- [x] 02-05-PLAN.md — Create test package and all four test files; run full suite
 **UI hint**: no
 
 ### Phase 3: Config + CLI Extension
