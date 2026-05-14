@@ -77,13 +77,14 @@ Plans:
 ### Phase 5: Tests + Build
 **Goal**: The dbt package has comprehensive pytest coverage, test_read_only.py covers AirflowBridge, Makefile has dbt-demo and dbt-dev targets, and `make dbt-demo` exercises all four screens end-to-end without any external service
 **Depends on**: Phase 4
-**Requirements**: TST-01, TST-02, TST-03, TST-04, TST-05, BLD-01, BLD-02
+**Requirements**: TST-01, TST-02, TST-03, TST-04, TST-05, BLD-01, BLD-02, BLD-03
 **Success Criteria** (what must be TRUE):
   1. tests/dbt/test_manifest.py covers all ManifestLoader methods: grain extraction precedence, var() regex, and lineage traversal all pass against fixture data
   2. tests/dbt/test_regression.py covers all 6 signal types with correct severity thresholds and verifies results are sorted critical-first
   3. tests/dbt/test_aggregator.py and tests/dbt/test_mock_data.py cover has_upstream_failure computation and tick() state transitions respectively
   4. tests/test_read_only.py extended: AirflowBridge has zero POST/PUT/DELETE/PATCH methods (same enforcement as original AirflowClient test)
   5. `make dbt-demo` starts successfully and all 4 screens, all keybind paths, all 5 ModelDetailScreen tabs, and all regression signal types are reachable with no external service
+  6. Dockerfile exists and builds successfully; mounts local target/ directory and accepts AIRFLOW_URL env var
 **Plans**: TBD
 
 ## Progress

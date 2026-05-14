@@ -50,6 +50,7 @@
 
 - [ ] **BLD-01**: Makefile adds dbt-demo target (runs with --demo flag, no Airflow needed)
 - [ ] **BLD-02**: Makefile adds dbt-dev target (points at local target/ directory via --manifest and --run-results)
+- [ ] **BLD-03**: Dockerfile for terminair — mounts local target/ directory and connects to a configurable Airflow URL; enables running terminair without a local Python install
 
 ### Tests
 
@@ -125,10 +126,11 @@
 | TST-05 | Phase 5 | Pending |
 | BLD-01 | Phase 5 | Pending |
 | BLD-02 | Phase 5 | Pending |
+| BLD-03 | Phase 5 | Pending |
 
 **Coverage:**
-- v1 requirements: 33 total
-- Mapped to phases: 33
+- v1 requirements: 34 total
+- Mapped to phases: 34
 - Unmapped: 0 ✓
 
 ---
