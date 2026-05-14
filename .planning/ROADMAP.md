@@ -32,7 +32,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 2 plans
 Plans:
 **Wave 1**
-- [ ] 01-01-PLAN.md — Delete all deprecated Airflow screen files, API modules, metrics modules, and test files
+- [x] 01-01-PLAN.md — Delete all deprecated Airflow screen files, API modules, metrics modules, and test files
 
 **Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 01-02-PLAN.md — Update app.py, __init__.py, pyproject.toml, and test_read_only.py to remove all Airflow references
@@ -93,7 +93,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Cleanup | 0/2 | Not started | - |
+| 1. Cleanup | 1/2 | In Progress | - |
 | 2. dbt Data Layer | 0/TBD | Not started | - |
 | 3. Config + CLI Extension | 0/TBD | Not started | - |
 | 4. Screens | 0/TBD | Not started | - |
