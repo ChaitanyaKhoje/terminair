@@ -24,11 +24,11 @@
 
 ### Fixtures
 
-- [ ] **FIX-01**: fixtures/manifest.json — 10 models across 4 tags (finance, marketing, core, risk) with realistic node structure including unique_key, depends_on, compiled_sql, config
-- [ ] **FIX-02**: fixtures/run_results.json — current run: 2 running, 1 self-failed, 1 upstream-failed, 2 queued, 4 success
-- [ ] **FIX-03**: fixtures/run_results_previous.json — prior run baseline; 2 models with row counts triggering row_drop; 1 model with different grain_columns
-- [ ] **FIX-04**: fixtures/manifest_previous.json — prior manifest; 1 model with different unique_key to trigger grain_added
-- [ ] **FIX-05**: fixtures/query_history.json — Snowflake mock with bytes_scanned per model
+- [x] **FIX-01**: fixtures/manifest.json — 10 models across 4 tags (finance, marketing, core, risk) with realistic node structure including unique_key, depends_on, compiled_sql, config
+- [x] **FIX-02**: fixtures/run_results.json — current run: 2 running, 1 self-failed, 1 upstream-failed, 2 queued, 4 success
+- [x] **FIX-03**: fixtures/run_results_previous.json — prior run baseline; 2 models with row counts triggering row_drop; 1 model with different grain_columns
+- [x] **FIX-04**: fixtures/manifest_previous.json — prior manifest; 1 model with different unique_key to trigger grain_added
+- [x] **FIX-05**: fixtures/query_history.json — Snowflake mock with bytes_scanned per model
 
 ### Screens
 
@@ -104,11 +104,11 @@
 | DAT-05 | Phase 2 | Pending |
 | DAT-06 | Phase 2 | Pending |
 | DAT-07 | Phase 2 | Pending |
-| FIX-01 | Phase 2 | Pending |
-| FIX-02 | Phase 2 | Pending |
-| FIX-03 | Phase 2 | Pending |
-| FIX-04 | Phase 2 | Pending |
-| FIX-05 | Phase 2 | Pending |
+| FIX-01 | Phase 2 | Complete |
+| FIX-02 | Phase 2 | Complete |
+| FIX-03 | Phase 2 | Complete |
+| FIX-04 | Phase 2 | Complete |
+| FIX-05 | Phase 2 | Complete |
 | CFG-01 | Phase 3 | Pending |
 | CFG-02 | Phase 3 | Pending |
 | CFG-03 | Phase 3 | Pending |

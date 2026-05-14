@@ -51,7 +51,7 @@ Plans:
 
 Plans:
 **Wave 1** *(can run in parallel)*
-- [ ] 02-01-PLAN.md — Create ModelState/RegressionSignal dataclasses and all five fixture JSON files
+- [x] 02-01-PLAN.md — Create ModelState/RegressionSignal dataclasses and all five fixture JSON files
 - [ ] 02-02-PLAN.md — Implement ManifestLoader and ArtifactReader
 
 **Wave 2** *(blocked on Wave 1: 02-01)*
@@ -109,7 +109,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Cleanup | 2/2 | Complete   | 2026-05-14 |
-| 2. dbt Data Layer | 0/5 | Not started | - |
+| 2. dbt Data Layer | 1/5 | In Progress|  |
 | 3. Config + CLI Extension | 0/TBD | Not started | - |
 | 4. Screens | 0/TBD | Not started | - |
 | 5. Tests + Build | 0/TBD | Not started | - |
