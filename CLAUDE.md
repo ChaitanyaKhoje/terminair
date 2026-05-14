@@ -136,3 +136,65 @@ python3 -m pytest terminair/tests/ -v
 ```
 
 Tests are in `terminair/tests/`. The `conftest.py` provides fixtures for config and mock API data.
+
+<!-- GSD:project-start source:PROJECT.md -->
+## Project
+
+**Terminair — dbt Model Intelligence TUI**
+
+Terminair is a read-only local developer TUI for answering operational and structural questions about dbt models. It runs locally, correlating three things the developer already has: a cloned dbt repo (manifest.json + run_results.json), a cloned Airflow app repo (DAG definitions), and a live local Airflow stack (task status + pod names from Kubernetes). Airflow and Snowflake are data sources only — the manifest.json is the primary source of truth.
+
+**Core Value:** A developer working on dbt models can instantly see what is happening with any model, why it is a problem, and what its full lineage looks like — without leaving the terminal and without touching production data.
+
+### Constraints
+
+- **Tech stack**: Python 3.11+, Textual ≥0.80, Pydantic v2, Click, PyYAML, Rich — no new major dependencies unless strictly necessary
+- **Read-only**: AirflowClient (being replaced by AirflowBridge) and new SnowflakeClient must have zero write methods — enforced by test_read_only.py
+- **Local artifacts only**: manifest.json and run_results.json consumed from local filesystem; no dbt Cloud API
+- **No prod data**: Local Airflow demo stack + fixture files are the only data sources during development
+- **Snowflake optional**: Entire snowflake config block is optional; absence must not crash anything
+<!-- GSD:project-end -->
+
+<!-- GSD:stack-start source:STACK.md -->
+## Technology Stack
+
+Technology stack not yet documented. Will populate after codebase mapping or first phase.
+<!-- GSD:stack-end -->
+
+<!-- GSD:conventions-start source:CONVENTIONS.md -->
+## Conventions
+
+Conventions not yet established. Will populate as patterns emerge during development.
+<!-- GSD:conventions-end -->
+
+<!-- GSD:architecture-start source:ARCHITECTURE.md -->
+## Architecture
+
+Architecture not yet mapped. Follow existing patterns found in the codebase.
+<!-- GSD:architecture-end -->
+
+<!-- GSD:skills-start source:skills/ -->
+## Project Skills
+
+No project skills found. Add skills to any of: `.claude/skills/`, `.agents/skills/`, `.cursor/skills/`, `.github/skills/`, or `.codex/skills/` with a `SKILL.md` index file.
+<!-- GSD:skills-end -->
+
+<!-- GSD:workflow-start source:GSD defaults -->
+## GSD Workflow Enforcement
+
+Before using Edit, Write, or other file-changing tools, start work through a GSD command so planning artifacts and execution context stay in sync.
+
+Use these entry points:
+- `/gsd-quick` for small fixes, doc updates, and ad-hoc tasks
+- `/gsd-debug` for investigation and bug fixing
+- `/gsd-execute-phase` for planned phase work
+
+Do not make direct repo edits outside a GSD workflow unless the user explicitly asks to bypass it.
+<!-- GSD:workflow-end -->
+
+<!-- GSD:profile-start -->
+## Developer Profile
+
+> Profile not yet configured. Run `/gsd-profile-user` to generate your developer profile.
+> This section is managed by `generate-claude-profile` -- do not edit manually.
+<!-- GSD:profile-end -->
