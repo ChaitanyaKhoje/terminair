@@ -55,7 +55,7 @@ Plans:
 - [x] 02-02-PLAN.md — Implement ManifestLoader and ArtifactReader
 
 **Wave 2** *(blocked on Wave 1: 02-01)*
-- [ ] 02-03-PLAN.md — Implement AirflowBridge and SnowflakeClient
+- [x] 02-03-PLAN.md — Implement AirflowBridge and SnowflakeClient
 
 **Wave 3** *(blocked on Wave 1: 02-02, Wave 2: 02-03)*
 - [ ] 02-04-PLAN.md — Implement StateAggregator, RegressionAnalyzer, and MockDataProvider
@@ -109,7 +109,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Cleanup | 2/2 | Complete   | 2026-05-14 |
-| 2. dbt Data Layer | 2/5 | In Progress|  |
+| 2. dbt Data Layer | 3/5 | In Progress|  |
 | 3. Config + CLI Extension | 0/TBD | Not started | - |
 | 4. Screens | 0/TBD | Not started | - |
 | 5. Tests + Build | 0/TBD | Not started | - |
