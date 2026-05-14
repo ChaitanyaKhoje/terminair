@@ -31,7 +31,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. app.py SCREENS dict and BINDINGS contain no references to any removed screen; the app starts without errors
 **Plans**: 2 plans
 Plans:
+**Wave 1**
 - [ ] 01-01-PLAN.md — Delete all deprecated Airflow screen files, API modules, metrics modules, and test files
+
+**Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 01-02-PLAN.md — Update app.py, __init__.py, pyproject.toml, and test_read_only.py to remove all Airflow references
 
 ### Phase 2: dbt Data Layer
