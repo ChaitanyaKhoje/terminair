@@ -29,7 +29,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. All deprecated source modules (api/client.py, api/poller.py, metrics/aggregations.py, metrics/critical_path.py, metrics/error_extract.py, metrics/sparkline.py, export.py) are deleted
   3. Tests for removed code (test_metrics.py, test_failure_heatmap.py, test_event_log_loader.py) are deleted and the test suite passes cleanly with zero import errors
   4. app.py SCREENS dict and BINDINGS contain no references to any removed screen; the app starts without errors
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 01-01-PLAN.md — Delete all deprecated Airflow screen files, API modules, metrics modules, and test files
+- [ ] 01-02-PLAN.md — Update app.py, __init__.py, pyproject.toml, and test_read_only.py to remove all Airflow references
 
 ### Phase 2: dbt Data Layer
 **Goal**: The terminair/dbt/ package exists with all seven modules fully implemented and tested against fixture files — screens can be written against a known-good data contract
@@ -87,7 +90,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Cleanup | 0/TBD | Not started | - |
+| 1. Cleanup | 0/2 | Not started | - |
 | 2. dbt Data Layer | 0/TBD | Not started | - |
 | 3. Config + CLI Extension | 0/TBD | Not started | - |
 | 4. Screens | 0/TBD | Not started | - |
