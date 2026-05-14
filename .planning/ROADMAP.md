@@ -47,7 +47,21 @@ Plans:
   3. StateAggregator merges all data sources into list[ModelState] and correctly computes has_upstream_failure by walking upstream_statuses
   4. RegressionAnalyzer detects all 6 signal types (row_drop, row_spike, grain_added, grain_removed, upstream_schema_change, new_model_no_baseline) at the correct severity thresholds, sorted critical-first
   5. MockDataProvider provides 10 models covering all status types and all signal types; tick() increments durations and transitions one running model to success after 4 ticks
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+**Wave 1** *(can run in parallel)*
+- [ ] 02-01-PLAN.md — Create ModelState/RegressionSignal dataclasses and all five fixture JSON files
+- [ ] 02-02-PLAN.md — Implement ManifestLoader and ArtifactReader
+
+**Wave 2** *(blocked on Wave 1: 02-01)*
+- [ ] 02-03-PLAN.md — Implement AirflowBridge and SnowflakeClient
+
+**Wave 3** *(blocked on Wave 1: 02-02, Wave 2: 02-03)*
+- [ ] 02-04-PLAN.md — Implement StateAggregator, RegressionAnalyzer, and MockDataProvider
+
+**Wave 4** *(blocked on all prior waves)*
+- [ ] 02-05-PLAN.md — Create test package and all four test files; run full suite
 **UI hint**: no
 
 ### Phase 3: Config + CLI Extension
@@ -95,7 +109,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Cleanup | 2/2 | Complete   | 2026-05-14 |
-| 2. dbt Data Layer | 0/TBD | Not started | - |
+| 2. dbt Data Layer | 0/5 | Not started | - |
 | 3. Config + CLI Extension | 0/TBD | Not started | - |
 | 4. Screens | 0/TBD | Not started | - |
 | 5. Tests + Build | 0/TBD | Not started | - |
