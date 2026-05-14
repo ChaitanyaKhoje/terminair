@@ -14,8 +14,8 @@
 
 ### Data Layer
 
-- [ ] **DAT-01**: ManifestLoader reads manifest.json and provides node lookup, tag index, upstream/downstream deps, full lineage tree, grain column extraction, ref/source/var parsing, and config access
-- [ ] **DAT-02**: ArtifactReader reads run_results.json and run_results_previous.json, returns per-node status, timing, row counts, and error messages; gracefully handles missing previous file
+- [x] **DAT-01**: ManifestLoader reads manifest.json and provides node lookup, tag index, upstream/downstream deps, full lineage tree, grain column extraction, ref/source/var parsing, and config access
+- [x] **DAT-02**: ArtifactReader reads run_results.json and run_results_previous.json, returns per-node status, timing, row counts, and error messages; gracefully handles missing previous file
 - [ ] **DAT-03**: AirflowBridge accepts dag_names list, fetches all tasks for those DAGs via Airflow REST API (GET only), fuzzy-matches task IDs to manifest node names, returns {node_id: (status, pod_name)}; pod_name nullable
 - [ ] **DAT-04**: SnowflakeClient returns bytes_scanned per model; entire client is mockable via dependency injection; TERMINAIR_MOCK_SNOWFLAKE=1 injects fixtures/query_history.json
 - [ ] **DAT-05**: StateAggregator is the single composition root — merges ManifestLoader + ArtifactReader + AirflowBridge + SnowflakeClient into list[ModelState]; computes has_upstream_failure by walking upstream_statuses
@@ -97,8 +97,8 @@
 | CLN-02 | Phase 1 | Pending |
 | CLN-03 | Phase 1 | Pending |
 | CLN-04 | Phase 1 | Complete |
-| DAT-01 | Phase 2 | Pending |
-| DAT-02 | Phase 2 | Pending |
+| DAT-01 | Phase 2 | Complete |
+| DAT-02 | Phase 2 | Complete |
 | DAT-03 | Phase 2 | Pending |
 | DAT-04 | Phase 2 | Pending |
 | DAT-05 | Phase 2 | Pending |
