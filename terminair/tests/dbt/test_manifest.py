@@ -165,3 +165,40 @@ def test_get_config():
     config = ml.get_config("model.my_project.fct_revenue_daily")
     assert isinstance(config, dict)
     assert "materialized" in config
+
+
+def test_var_extraction_required(tmp_path):
+    """get_dbt_vars returns REQUIRED for vars without a default value."""
+    # Write a minimal manifest with a node that has var('some_var') — no default
+    manifest_data = {
+        "nodes": {
+            "model.test.my_model": {
+                "unique_id": "model.test.my_model",
+                "name": "my_model",
+                "tags": [],
+                "config": {"materialized": "view"},
+                "raw_code": "SELECT {{ var('some_var') }} AS val",
+                "depends_on": {"nodes": []},
+                "refs": [],
+                "sources": [],
+            }
+        },
+        "parent_map": {},
+        "child_map": {},
+    }
+    import json
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest_data))
+
+    ml = ManifestLoader(manifest_path)
+    vars_dict = ml.get_dbt_vars("model.test.my_model")
+    assert "some_var" in vars_dict
+    assert vars_dict["some_var"] == "REQUIRED"
+
+
+def test_tag_index_all_tags_covered():
+    """build_tag_index returns entries for all expected tags."""
+    ml = ManifestLoader(FIXTURES / "manifest.json")
+    idx = ml.build_tag_index()
+    for tag in ("finance", "marketing", "core", "platform", "risk"):
+        assert tag in idx, f"Expected tag '{tag}' in tag index"

@@ -113,3 +113,76 @@ class TestStateAggregator:
         # rows_written is None (running) → row_delta_pct must be None
         assert fct_revenue.rows_written is None
         assert fct_revenue.row_delta_pct is None
+
+    def test_has_upstream_failure_rule_skipped_counts(self, tmp_path):
+        """has_upstream_failure=True when an upstream node has status 'skipped'."""
+        import json
+        from terminair.dbt.aggregator import StateAggregator
+        from terminair.dbt.manifest import ManifestLoader
+        from terminair.dbt.artifacts import ArtifactReader
+
+        # Write minimal manifest: node A (upstream) and node B (depends on A)
+        manifest_data = {
+            "nodes": {
+                "model.p.node_a": {
+                    "unique_id": "model.p.node_a",
+                    "name": "node_a",
+                    "tags": ["core"],
+                    "config": {"materialized": "view"},
+                    "raw_code": "",
+                    "depends_on": {"nodes": []},
+                    "refs": [],
+                    "sources": [],
+                },
+                "model.p.node_b": {
+                    "unique_id": "model.p.node_b",
+                    "name": "node_b",
+                    "tags": ["core"],
+                    "config": {"materialized": "table"},
+                    "raw_code": "",
+                    "depends_on": {"nodes": ["model.p.node_a"]},
+                    "refs": [["node_a"]],
+                    "sources": [],
+                },
+            },
+            "parent_map": {
+                "model.p.node_b": ["model.p.node_a"],
+            },
+            "child_map": {
+                "model.p.node_a": ["model.p.node_b"],
+            },
+        }
+        manifest_path = tmp_path / "manifest.json"
+        manifest_path.write_text(json.dumps(manifest_data))
+
+        # run_results: A is skipped, B is success
+        run_results_data = {
+            "results": [
+                {
+                    "unique_id": "model.p.node_a",
+                    "status": "skipped",
+                    "execution_time": 0.0,
+                    "timing": [],
+                    "adapter_response": {},
+                },
+                {
+                    "unique_id": "model.p.node_b",
+                    "status": "success",
+                    "execution_time": 1.5,
+                    "timing": [],
+                    "adapter_response": {"rows_affected": 100},
+                },
+            ]
+        }
+        run_results_path = tmp_path / "run_results.json"
+        run_results_path.write_text(json.dumps(run_results_data))
+
+        ml = ManifestLoader(manifest_path)
+        ar = ArtifactReader(run_results_path)
+        agg = StateAggregator(ml, ar)
+        models = asyncio.run(agg.get_models())
+
+        node_b = next(m for m in models if m.name == "node_b")
+        assert node_b.has_upstream_failure is True, (
+            "node_b should have has_upstream_failure=True because its upstream (node_a) is skipped"
+        )

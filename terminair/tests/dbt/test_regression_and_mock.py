@@ -242,6 +242,77 @@ class TestRegressionAnalyzer:
         assert len(signals) >= 1
         assert all(s.node_id == "model.p.stg_orders" for s in signals)
 
+    def test_row_spike_warning(self):
+        """row_delta_pct > 50% → WARNING row_spike signal."""
+        from terminair.dbt.regression import RegressionAnalyzer
+        from terminair.dbt.models import ModelState
+
+        model = ModelState(
+            node_id="model.p.stg_orders",
+            name="stg_orders",
+            tag="core",
+            status="success",
+            dag_id="",
+            task_id="",
+            materialization="view",
+            schema_name="s",
+            database_name="d",
+            has_upstream_failure=False,
+            row_delta_pct=75.0,
+        )
+        ra = RegressionAnalyzer([model])
+        signals = ra.analyze()
+        row_spikes = [s for s in signals if s.signal_type == "row_spike"]
+        assert len(row_spikes) == 1
+        assert row_spikes[0].severity == Severity.WARNING
+
+    def test_row_spike_below_threshold_no_signal(self):
+        """row_delta_pct <= 50% → no row_spike signal."""
+        from terminair.dbt.regression import RegressionAnalyzer
+        from terminair.dbt.models import ModelState
+
+        model = ModelState(
+            node_id="model.p.stg_orders",
+            name="stg_orders",
+            tag="core",
+            status="success",
+            dag_id="",
+            task_id="",
+            materialization="view",
+            schema_name="s",
+            database_name="d",
+            has_upstream_failure=False,
+            row_delta_pct=30.0,
+        )
+        ra = RegressionAnalyzer([model])
+        signals = ra.analyze()
+        row_spikes = [s for s in signals if s.signal_type == "row_spike"]
+        assert len(row_spikes) == 0
+
+    def test_new_model_no_baseline_not_triggered_if_not_success(self):
+        """rows_previous=None AND status != 'success' → no new_model_no_baseline signal."""
+        from terminair.dbt.regression import RegressionAnalyzer
+        from terminair.dbt.models import ModelState
+
+        model = ModelState(
+            node_id="model.p.some_model",
+            name="some_model",
+            tag="core",
+            status="failed",
+            dag_id="",
+            task_id="",
+            materialization="table",
+            schema_name="s",
+            database_name="d",
+            has_upstream_failure=False,
+            rows_previous=None,
+            rows_written=None,
+        )
+        ra = RegressionAnalyzer([model])
+        signals = ra.analyze()
+        no_baseline = [s for s in signals if s.signal_type == "new_model_no_baseline"]
+        assert len(no_baseline) == 0
+
 
 class TestMockDataProvider:
     def test_import(self):
@@ -320,3 +391,55 @@ class TestMockDataProvider:
         signals = ra.analyze()
         no_baseline = [s for s in signals if s.signal_type == "new_model_no_baseline"]
         assert len(no_baseline) >= 1
+
+    def test_tick_increments_running_duration(self):
+        """After 1 tick, running models have duration_s > initial value."""
+        from terminair.dbt.mock_data import MockDataProvider
+
+        mdp = MockDataProvider()
+        initial_models = asyncio.run(mdp.get_models())
+        initial_durations = {m.name: m.duration_s for m in initial_models if m.status == "running"}
+
+        mdp.tick()
+
+        models_after = asyncio.run(mdp.get_models())
+        after_durations = {m.name: m.duration_s for m in models_after if m.status == "running"}
+
+        for name, initial_dur in initial_durations.items():
+            if name in after_durations:
+                assert after_durations[name] > (initial_dur or 0.0), (
+                    f"{name} duration should have increased after tick"
+                )
+
+    def test_tick_recomputes_row_delta_pct(self):
+        """After 4 ticks, the transitioned model has status=success and row_delta_pct is not None."""
+        from terminair.dbt.mock_data import MockDataProvider
+
+        mdp = MockDataProvider()
+        initial_models = asyncio.run(mdp.get_models())
+        # Record initial running model names
+        initial_running = [m.name for m in initial_models if m.status == "running"]
+        assert len(initial_running) == 2
+
+        for _ in range(4):
+            mdp.tick()
+
+        models_after = asyncio.run(mdp.get_models())
+        # One model should have transitioned from running → success
+        transitioned = [
+            m for m in models_after
+            if m.name in initial_running and m.status == "success"
+        ]
+        assert len(transitioned) == 1, f"Expected 1 transitioned model, got {transitioned}"
+        # The transitioned model should have row_delta_pct computed (not None)
+        assert transitioned[0].row_delta_pct is not None
+
+    def test_get_models_returns_copy(self):
+        """Mutating the returned list does not affect internal state."""
+        from terminair.dbt.mock_data import MockDataProvider
+
+        mdp = MockDataProvider()
+        models1 = asyncio.run(mdp.get_models())
+        models1.clear()  # Mutate the returned list
+        models2 = asyncio.run(mdp.get_models())
+        assert len(models2) == 10, "Internal state was mutated — get_models() must return a copy"
