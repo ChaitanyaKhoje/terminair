@@ -1,0 +1,385 @@
+{
+  "metadata": {
+    "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v10/manifest.json",
+    "dbt_version": "1.6.5",
+    "generated_at": "2026-05-14T10:05:00Z",
+    "invocation_id": "abc123",
+    "env": {}
+  },
+  "nodes": {
+    "model.my_project.fct_revenue_daily": {
+      "unique_id": "model.my_project.fct_revenue_daily",
+      "name": "fct_revenue_daily",
+      "resource_type": "model",
+      "package_name": "my_project",
+      "path": "finance/fct_revenue_daily.sql",
+      "original_file_path": "models/finance/fct_revenue_daily.sql",
+      "fqn": ["my_project", "finance", "fct_revenue_daily"],
+      "alias": "fct_revenue_daily",
+      "schema": "analytics",
+      "database": "prod",
+      "description": "Daily revenue fact table by region and product.",
+      "tags": ["finance"],
+      "config": {
+        "materialized": "table",
+        "unique_key": "revenue_date",
+        "tags": ["finance"],
+        "enabled": true
+      },
+      "depends_on": {
+        "macros": [],
+        "nodes": [
+          "model.my_project.stg_orders",
+          "model.my_project.stg_payments"
+        ]
+      },
+      "raw_code": "SELECT\n  DATE({{ var('run_date', 'CURRENT_DATE') }}) AS revenue_date,\n  SUM(p.amount) AS total_revenue\nFROM {{ ref('stg_orders') }} o\nJOIN {{ ref('stg_payments') }} p ON o.order_id = p.order_id\nGROUP BY 1",
+      "compiled_code": "SELECT\n  DATE(CURRENT_DATE) AS revenue_date,\n  SUM(p.amount) AS total_revenue\nFROM analytics.stg_orders o\nJOIN analytics.stg_payments p ON o.order_id = p.order_id\nGROUP BY 1",
+      "columns": {},
+      "meta": {},
+      "refs": [["stg_orders"], ["stg_payments"]],
+      "sources": []
+    },
+    "model.my_project.fct_orders": {
+      "unique_id": "model.my_project.fct_orders",
+      "name": "fct_orders",
+      "resource_type": "model",
+      "package_name": "my_project",
+      "path": "finance/fct_orders.sql",
+      "original_file_path": "models/finance/fct_orders.sql",
+      "fqn": ["my_project", "finance", "fct_orders"],
+      "alias": "fct_orders",
+      "schema": "analytics",
+      "database": "prod",
+      "description": "Incremental order fact table.",
+      "tags": ["finance"],
+      "config": {
+        "materialized": "incremental",
+        "unique_key": "order_id",
+        "tags": ["finance"],
+        "enabled": true
+      },
+      "depends_on": {
+        "macros": [],
+        "nodes": [
+          "model.my_project.stg_orders",
+          "model.my_project.stg_payments"
+        ]
+      },
+      "raw_code": "SELECT\n  o.order_id,\n  o.customer_id,\n  p.amount,\n  {{ var('currency', 'USD') }} AS currency\nFROM {{ ref('stg_orders') }} o\nLEFT JOIN {{ ref('stg_payments') }} p ON o.order_id = p.order_id",
+      "compiled_code": "SELECT\n  o.order_id,\n  o.customer_id,\n  p.amount,\n  'USD' AS currency\nFROM analytics.stg_orders o\nLEFT JOIN analytics.stg_payments p ON o.order_id = p.order_id",
+      "columns": {},
+      "meta": {},
+      "refs": [["stg_orders"], ["stg_payments"]],
+      "sources": []
+    },
+    "model.my_project.mart_finance_summary": {
+      "unique_id": "model.my_project.mart_finance_summary",
+      "name": "mart_finance_summary",
+      "resource_type": "model",
+      "package_name": "my_project",
+      "path": "finance/mart_finance_summary.sql",
+      "original_file_path": "models/finance/mart_finance_summary.sql",
+      "fqn": ["my_project", "finance", "mart_finance_summary"],
+      "alias": "mart_finance_summary",
+      "schema": "analytics",
+      "database": "prod",
+      "description": "Finance summary mart aggregating orders and revenue.",
+      "tags": ["finance"],
+      "config": {
+        "materialized": "table",
+        "tags": ["finance"],
+        "enabled": true
+      },
+      "depends_on": {
+        "macros": [],
+        "nodes": [
+          "model.my_project.fct_orders",
+          "model.my_project.fct_revenue_daily"
+        ]
+      },
+      "raw_code": "SELECT\n  r.revenue_date,\n  r.total_revenue,\n  COUNT(o.order_id) AS order_count\nFROM {{ ref('fct_revenue_daily') }} r\nJOIN {{ ref('fct_orders') }} o ON r.revenue_date = DATE(o.created_at)\nGROUP BY 1, 2",
+      "compiled_code": "SELECT\n  r.revenue_date,\n  r.total_revenue,\n  COUNT(o.order_id) AS order_count\nFROM analytics.fct_revenue_daily r\nJOIN analytics.fct_orders o ON r.revenue_date = DATE(o.created_at)\nGROUP BY 1, 2",
+      "columns": {},
+      "meta": {},
+      "refs": [["fct_revenue_daily"], ["fct_orders"]],
+      "sources": []
+    },
+    "model.my_project.stg_campaign_events": {
+      "unique_id": "model.my_project.stg_campaign_events",
+      "name": "stg_campaign_events",
+      "resource_type": "model",
+      "package_name": "my_project",
+      "path": "marketing/stg_campaign_events.sql",
+      "original_file_path": "models/marketing/stg_campaign_events.sql",
+      "fqn": ["my_project", "marketing", "stg_campaign_events"],
+      "alias": "stg_campaign_events",
+      "schema": "analytics",
+      "database": "prod",
+      "description": "Staging model for raw campaign event data.",
+      "tags": ["marketing"],
+      "config": {
+        "materialized": "view",
+        "tags": ["marketing"],
+        "enabled": true
+      },
+      "depends_on": {
+        "macros": [],
+        "nodes": []
+      },
+      "raw_code": "SELECT\n  event_id,\n  campaign_id,\n  user_id,\n  event_type,\n  {{ var('event_ts_col', 'event_timestamp') }} AS event_ts\nFROM raw.campaign_events",
+      "compiled_code": "SELECT\n  event_id,\n  campaign_id,\n  user_id,\n  event_type,\n  event_timestamp AS event_ts\nFROM raw.campaign_events",
+      "columns": {},
+      "meta": {},
+      "refs": [],
+      "sources": []
+    },
+    "model.my_project.fct_campaign_attribution": {
+      "unique_id": "model.my_project.fct_campaign_attribution",
+      "name": "fct_campaign_attribution",
+      "resource_type": "model",
+      "package_name": "my_project",
+      "path": "marketing/fct_campaign_attribution.sql",
+      "original_file_path": "models/marketing/fct_campaign_attribution.sql",
+      "fqn": ["my_project", "marketing", "fct_campaign_attribution"],
+      "alias": "fct_campaign_attribution",
+      "schema": "analytics",
+      "database": "prod",
+      "description": "Campaign attribution fact table.",
+      "tags": ["marketing"],
+      "config": {
+        "materialized": "table",
+        "unique_key": "attribution_id",
+        "tags": ["marketing"],
+        "enabled": true
+      },
+      "depends_on": {
+        "macros": [],
+        "nodes": [
+          "model.my_project.stg_campaign_events"
+        ]
+      },
+      "raw_code": "SELECT\n  {{ dbt_utils.generate_surrogate_key(['campaign_id', 'user_id', 'event_ts']) }} AS attribution_id,\n  campaign_id,\n  user_id\nFROM {{ ref('stg_campaign_events') }}",
+      "compiled_code": "SELECT\n  MD5(campaign_id || user_id || event_ts) AS attribution_id,\n  campaign_id,\n  user_id\nFROM analytics.stg_campaign_events",
+      "columns": {},
+      "meta": {},
+      "refs": [["stg_campaign_events"]],
+      "sources": []
+    },
+    "model.my_project.stg_orders": {
+      "unique_id": "model.my_project.stg_orders",
+      "name": "stg_orders",
+      "resource_type": "model",
+      "package_name": "my_project",
+      "path": "core/stg_orders.sql",
+      "original_file_path": "models/core/stg_orders.sql",
+      "fqn": ["my_project", "core", "stg_orders"],
+      "alias": "stg_orders",
+      "schema": "analytics",
+      "database": "prod",
+      "description": "Staging model for raw orders data.",
+      "tags": ["core"],
+      "config": {
+        "materialized": "view",
+        "tags": ["core"],
+        "enabled": true
+      },
+      "depends_on": {
+        "macros": [],
+        "nodes": []
+      },
+      "raw_code": "SELECT\n  order_id,\n  customer_id,\n  status,\n  created_at\nFROM {{ source('raw', 'orders') }}\nWHERE created_at >= {{ var('min_date', '2020-01-01') }}",
+      "compiled_code": "SELECT\n  order_id,\n  customer_id,\n  status,\n  created_at\nFROM raw.orders\nWHERE created_at >= '2020-01-01'",
+      "columns": {},
+      "meta": {},
+      "refs": [],
+      "sources": [["raw", "orders"]]
+    },
+    "model.my_project.stg_payments": {
+      "unique_id": "model.my_project.stg_payments",
+      "name": "stg_payments",
+      "resource_type": "model",
+      "package_name": "my_project",
+      "path": "core/stg_payments.sql",
+      "original_file_path": "models/core/stg_payments.sql",
+      "fqn": ["my_project", "core", "stg_payments"],
+      "alias": "stg_payments",
+      "schema": "analytics",
+      "database": "prod",
+      "description": "Staging model for raw payments data.",
+      "tags": ["core"],
+      "config": {
+        "materialized": "view",
+        "tags": ["core"],
+        "enabled": true
+      },
+      "depends_on": {
+        "macros": [],
+        "nodes": []
+      },
+      "raw_code": "SELECT\n  payment_id,\n  order_id,\n  amount,\n  payment_method,\n  paid_at\nFROM {{ source('raw', 'payments') }}",
+      "compiled_code": "SELECT\n  payment_id,\n  order_id,\n  amount,\n  payment_method,\n  paid_at\nFROM raw.payments",
+      "columns": {},
+      "meta": {},
+      "refs": [],
+      "sources": [["raw", "payments"]]
+    },
+    "model.my_project.mart_platform_usage": {
+      "unique_id": "model.my_project.mart_platform_usage",
+      "name": "mart_platform_usage",
+      "resource_type": "model",
+      "package_name": "my_project",
+      "path": "platform/mart_platform_usage.sql",
+      "original_file_path": "models/platform/mart_platform_usage.sql",
+      "fqn": ["my_project", "platform", "mart_platform_usage"],
+      "alias": "mart_platform_usage",
+      "schema": "analytics",
+      "database": "prod",
+      "description": "Platform usage mart with daily rollup.",
+      "tags": ["platform"],
+      "config": {
+        "materialized": "incremental",
+        "unique_key": "usage_date",
+        "tags": ["platform"],
+        "enabled": true
+      },
+      "depends_on": {
+        "macros": [],
+        "nodes": [
+          "model.my_project.fct_platform_events"
+        ]
+      },
+      "raw_code": "SELECT\n  DATE(event_ts) AS usage_date,\n  COUNT(*) AS event_count,\n  COUNT(DISTINCT user_id) AS dau\nFROM {{ ref('fct_platform_events') }}\nWHERE DATE(event_ts) >= {{ var('lookback_date', 'DATEADD(day, -7, CURRENT_DATE)') }}\nGROUP BY 1",
+      "compiled_code": "SELECT\n  DATE(event_ts) AS usage_date,\n  COUNT(*) AS event_count,\n  COUNT(DISTINCT user_id) AS dau\nFROM analytics.fct_platform_events\nWHERE DATE(event_ts) >= DATEADD(day, -7, CURRENT_DATE)\nGROUP BY 1",
+      "columns": {},
+      "meta": {},
+      "refs": [["fct_platform_events"]],
+      "sources": []
+    },
+    "model.my_project.fct_platform_events": {
+      "unique_id": "model.my_project.fct_platform_events",
+      "name": "fct_platform_events",
+      "resource_type": "model",
+      "package_name": "my_project",
+      "path": "platform/fct_platform_events.sql",
+      "original_file_path": "models/platform/fct_platform_events.sql",
+      "fqn": ["my_project", "platform", "fct_platform_events"],
+      "alias": "fct_platform_events",
+      "schema": "analytics",
+      "database": "prod",
+      "description": "Platform events fact table.",
+      "tags": ["platform"],
+      "config": {
+        "materialized": "table",
+        "unique_key": "event_id",
+        "tags": ["platform"],
+        "enabled": true
+      },
+      "depends_on": {
+        "macros": [],
+        "nodes": [
+          "model.my_project.stg_orders"
+        ]
+      },
+      "raw_code": "SELECT\n  event_id,\n  user_id,\n  event_type,\n  event_ts\nFROM raw.platform_events\nWHERE user_id IN (SELECT customer_id FROM {{ ref('stg_orders') }})",
+      "compiled_code": "SELECT\n  event_id,\n  user_id,\n  event_type,\n  event_ts\nFROM raw.platform_events\nWHERE user_id IN (SELECT customer_id FROM analytics.stg_orders)",
+      "columns": {},
+      "meta": {},
+      "refs": [["stg_orders"]],
+      "sources": []
+    },
+    "model.my_project.fct_risk_exposure": {
+      "unique_id": "model.my_project.fct_risk_exposure",
+      "name": "fct_risk_exposure",
+      "resource_type": "model",
+      "package_name": "my_project",
+      "path": "risk/fct_risk_exposure.sql",
+      "original_file_path": "models/risk/fct_risk_exposure.sql",
+      "fqn": ["my_project", "risk", "fct_risk_exposure"],
+      "alias": "fct_risk_exposure",
+      "schema": "analytics",
+      "database": "prod",
+      "description": "Risk exposure fact table by date and entity.",
+      "tags": ["risk"],
+      "config": {
+        "materialized": "incremental",
+        "unique_key": ["risk_date", "entity_id"],
+        "tags": ["risk"],
+        "enabled": true
+      },
+      "depends_on": {
+        "macros": [],
+        "nodes": [
+          "model.my_project.fct_orders"
+        ]
+      },
+      "raw_code": "SELECT\n  DATE(o.created_at) AS risk_date,\n  o.customer_id AS entity_id,\n  SUM(o.amount) AS exposure_amount,\n  {{ var('risk_threshold', '10000') }} AS threshold\nFROM {{ ref('fct_orders') }} o\nGROUP BY 1, 2",
+      "compiled_code": "SELECT\n  DATE(o.created_at) AS risk_date,\n  o.customer_id AS entity_id,\n  SUM(o.amount) AS exposure_amount,\n  10000 AS threshold\nFROM analytics.fct_orders o\nGROUP BY 1, 2",
+      "columns": {},
+      "meta": {},
+      "refs": [["fct_orders"]],
+      "sources": []
+    }
+  },
+  "sources": {},
+  "exposures": {},
+  "metrics": {},
+  "selectors": {},
+  "parent_map": {
+    "model.my_project.fct_revenue_daily": [
+      "model.my_project.stg_orders",
+      "model.my_project.stg_payments"
+    ],
+    "model.my_project.fct_orders": [
+      "model.my_project.stg_orders",
+      "model.my_project.stg_payments"
+    ],
+    "model.my_project.mart_finance_summary": [
+      "model.my_project.fct_orders",
+      "model.my_project.fct_revenue_daily"
+    ],
+    "model.my_project.stg_campaign_events": [],
+    "model.my_project.fct_campaign_attribution": [
+      "model.my_project.stg_campaign_events"
+    ],
+    "model.my_project.stg_orders": [],
+    "model.my_project.stg_payments": [],
+    "model.my_project.mart_platform_usage": [
+      "model.my_project.fct_platform_events"
+    ],
+    "model.my_project.fct_platform_events": [
+      "model.my_project.stg_orders"
+    ],
+    "model.my_project.fct_risk_exposure": [
+      "model.my_project.fct_orders"
+    ]
+  },
+  "child_map": {
+    "model.my_project.stg_orders": [
+      "model.my_project.fct_revenue_daily",
+      "model.my_project.fct_orders",
+      "model.my_project.fct_platform_events"
+    ],
+    "model.my_project.stg_payments": [
+      "model.my_project.fct_revenue_daily",
+      "model.my_project.fct_orders"
+    ],
+    "model.my_project.fct_orders": [
+      "model.my_project.mart_finance_summary",
+      "model.my_project.fct_risk_exposure"
+    ],
+    "model.my_project.fct_revenue_daily": [
+      "model.my_project.mart_finance_summary"
+    ],
+    "model.my_project.mart_finance_summary": [],
+    "model.my_project.stg_campaign_events": [
+      "model.my_project.fct_campaign_attribution"
+    ],
+    "model.my_project.fct_campaign_attribution": [],
+    "model.my_project.mart_platform_usage": [],
+    "model.my_project.fct_platform_events": [
+      "model.my_project.mart_platform_usage"
+    ],
+    "model.my_project.fct_risk_exposure": []
+  }
+}

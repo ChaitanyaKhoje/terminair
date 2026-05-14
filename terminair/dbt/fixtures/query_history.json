@@ -1,0 +1,12 @@
+{
+  "fct_revenue_daily": 2147483648,
+  "fct_orders": 1073741824,
+  "mart_finance_summary": 536870912,
+  "stg_campaign_events": 0,
+  "fct_campaign_attribution": 214748364,
+  "stg_orders": 104857600,
+  "stg_payments": 83886080,
+  "mart_platform_usage": 4294967296,
+  "fct_platform_events": 734003200,
+  "fct_risk_exposure": 367001600
+}

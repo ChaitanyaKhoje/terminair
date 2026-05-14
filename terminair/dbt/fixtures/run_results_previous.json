@@ -1,0 +1,205 @@
+{
+  "metadata": {
+    "dbt_schema_version": "https://schemas.getdbt.com/dbt/run-results/v5/run-results.json",
+    "dbt_version": "1.6.5",
+    "generated_at": "2026-05-13T10:05:00Z",
+    "invocation_id": "abc122",
+    "env": {}
+  },
+  "args": {
+    "select": [],
+    "exclude": []
+  },
+  "results": [
+    {
+      "unique_id": "model.my_project.fct_revenue_daily",
+      "status": "success",
+      "execution_time": 38.5,
+      "adapter_response": {
+        "rows_affected": 22000
+      },
+      "timing": [
+        {
+          "name": "execute",
+          "started_at": "2026-05-13T10:00:01.500Z",
+          "completed_at": "2026-05-13T10:00:40.000Z"
+        }
+      ],
+      "message": null,
+      "compiled": true,
+      "compiled_code": null,
+      "failures": null
+    },
+    {
+      "unique_id": "model.my_project.fct_orders",
+      "status": "success",
+      "execution_time": 68.2,
+      "adapter_response": {
+        "rows_affected": 18000
+      },
+      "timing": [
+        {
+          "name": "execute",
+          "started_at": "2026-05-13T10:00:01.500Z",
+          "completed_at": "2026-05-13T10:01:09.700Z"
+        }
+      ],
+      "message": null,
+      "compiled": true,
+      "compiled_code": null,
+      "failures": null
+    },
+    {
+      "unique_id": "model.my_project.mart_finance_summary",
+      "status": "success",
+      "execution_time": 12.4,
+      "adapter_response": {
+        "rows_affected": 55000
+      },
+      "timing": [
+        {
+          "name": "execute",
+          "started_at": "2026-05-13T10:00:01.500Z",
+          "completed_at": "2026-05-13T10:00:13.900Z"
+        }
+      ],
+      "message": null,
+      "compiled": true,
+      "compiled_code": null,
+      "failures": null
+    },
+    {
+      "unique_id": "model.my_project.stg_campaign_events",
+      "status": "success",
+      "execution_time": 1.1,
+      "adapter_response": {
+        "rows_affected": 0
+      },
+      "timing": [
+        {
+          "name": "execute",
+          "started_at": "2026-05-13T10:00:01.500Z",
+          "completed_at": "2026-05-13T10:00:02.600Z"
+        }
+      ],
+      "message": null,
+      "compiled": true,
+      "compiled_code": null,
+      "failures": null
+    },
+    {
+      "unique_id": "model.my_project.fct_campaign_attribution",
+      "status": "success",
+      "execution_time": 18.7,
+      "adapter_response": {
+        "rows_affected": 31000
+      },
+      "timing": [
+        {
+          "name": "execute",
+          "started_at": "2026-05-13T10:00:01.500Z",
+          "completed_at": "2026-05-13T10:00:20.200Z"
+        }
+      ],
+      "message": null,
+      "compiled": true,
+      "compiled_code": null,
+      "failures": null
+    },
+    {
+      "unique_id": "model.my_project.stg_orders",
+      "status": "success",
+      "execution_time": 7.4,
+      "adapter_response": {
+        "rows_affected": 20000
+      },
+      "timing": [
+        {
+          "name": "execute",
+          "started_at": "2026-05-13T10:00:01.500Z",
+          "completed_at": "2026-05-13T10:00:08.900Z"
+        }
+      ],
+      "message": null,
+      "compiled": true,
+      "compiled_code": null,
+      "failures": null
+    },
+    {
+      "unique_id": "model.my_project.stg_payments",
+      "status": "success",
+      "execution_time": 6.1,
+      "adapter_response": {
+        "rows_affected": 12800
+      },
+      "timing": [
+        {
+          "name": "execute",
+          "started_at": "2026-05-13T10:00:01.500Z",
+          "completed_at": "2026-05-13T10:00:07.600Z"
+        }
+      ],
+      "message": null,
+      "compiled": true,
+      "compiled_code": null,
+      "failures": null
+    },
+    {
+      "unique_id": "model.my_project.mart_platform_usage",
+      "status": "success",
+      "execution_time": 118.3,
+      "adapter_response": {
+        "rows_affected": 1500000
+      },
+      "timing": [
+        {
+          "name": "execute",
+          "started_at": "2026-05-13T10:00:01.500Z",
+          "completed_at": "2026-05-13T10:01:59.800Z"
+        }
+      ],
+      "message": null,
+      "compiled": true,
+      "compiled_code": null,
+      "failures": null
+    },
+    {
+      "unique_id": "model.my_project.fct_platform_events",
+      "status": "success",
+      "execution_time": 29.8,
+      "adapter_response": {
+        "rows_affected": 43000
+      },
+      "timing": [
+        {
+          "name": "execute",
+          "started_at": "2026-05-13T10:00:01.500Z",
+          "completed_at": "2026-05-13T10:00:31.300Z"
+        }
+      ],
+      "message": null,
+      "compiled": true,
+      "compiled_code": null,
+      "failures": null
+    },
+    {
+      "unique_id": "model.my_project.fct_risk_exposure",
+      "status": "success",
+      "execution_time": 22.1,
+      "adapter_response": {
+        "rows_affected": 9500
+      },
+      "timing": [
+        {
+          "name": "execute",
+          "started_at": "2026-05-13T10:00:01.500Z",
+          "completed_at": "2026-05-13T10:00:23.600Z"
+        }
+      ],
+      "message": null,
+      "compiled": true,
+      "compiled_code": null,
+      "failures": null
+    }
+  ]
+}
