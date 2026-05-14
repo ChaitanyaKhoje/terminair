@@ -147,7 +147,7 @@ Local filesystem                  Airflow REST API           Snowflake (optional
             also consumed by screens
 
   MockDataProvider (drop-in when manifest.json missing)
-  .get_models() → list[ModelState] (same interface)
+  .get_models() → list[ModelState] (same interface, async def)
   .tick() → increments duration, transitions running→success after 4 ticks
 ```
 
@@ -626,22 +626,22 @@ def get_dbt_vars(raw_code: str | None, compiled_code: str | None) -> dict[str, s
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Airflow REST API: exact task_instances response field for state**
    - What we know: Airflow's OpenAPI spec calls it `state` (not `status`); task instance model docs list `state` as the field
    - What's unclear: Whether `state` can be `running` (Airflow typically uses `running`) or maps differently to dbt's status vocabulary
-   - Recommendation: Use `ti.get("state", "unknown")` and implement a status mapping: `{"running": "running", "success": "success", "failed": "failed", "queued": "queued", "skipped": "skipped", "upstream_failed": "failed"}`
+   - RESOLVED: Use `ti.get("state", "unknown")` and implement a status mapping: `{"running": "running", "success": "success", "failed": "failed", "queued": "queued", "skipped": "skipped", "upstream_failed": "failed"}`. This mapping is implemented as `_STATE_MAP` in airflow_bridge.py.
 
 2. **Does parent_map / child_map always exist in dbt manifest v10?**
    - What we know: The manifest documentation mentions `parent_map` and `child_map` as top-level keys
    - What's unclear: Whether they are always populated or only after `dbt docs generate`
-   - Recommendation: Implement ManifestLoader to fall back to building deps from `nodes[id]["depends_on"]["nodes"]` if parent_map is empty
+   - RESOLVED: ManifestLoader falls back to building deps from `nodes[id]["depends_on"]["nodes"]` if parent_map is empty or absent. Both code paths are implemented and tested.
 
 3. **pytest test discovery for terminair/tests/dbt/ subdirectory**
    - What we know: pyproject.toml has `testpaths = ["terminair/tests"]`; pytest 8.x discovers subdirs automatically
    - What's unclear: Whether `__init__.py` is needed in `tests/dbt/` for the current pytest-asyncio setup
-   - Recommendation: Create empty `__init__.py` in `tests/dbt/` — safe either way, prevents discovery issues
+   - RESOLVED: Create empty `__init__.py` in `tests/dbt/` — safe either way, prevents discovery issues. This is implemented as the first file created in 02-05-PLAN.md Task 1.
 
 ---
 
