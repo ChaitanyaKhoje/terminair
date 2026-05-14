@@ -7,9 +7,9 @@
 
 ### Cleanup
 
-- [ ] **CLN-01**: All deprecated Airflow screens removed (pools, health, SLA misses, resource timeline, XCom viewer, DAG list, dag_detail, dag_deps, dag_graph, task_instances, task_history, broken_summary, recent_activity, event_log, import_errors, watchlist)
-- [ ] **CLN-02**: All deprecated Airflow-specific modules removed (api/client.py, api/poller.py, metrics/aggregations.py, metrics/critical_path.py, metrics/error_extract.py, metrics/sparkline.py, export.py)
-- [ ] **CLN-03**: Tests for removed screens deleted (test_metrics.py, test_failure_heatmap.py, test_event_log_loader.py)
+- [x] **CLN-01**: All deprecated Airflow screens removed (pools, health, SLA misses, resource timeline, XCom viewer, DAG list, dag_detail, dag_deps, dag_graph, task_instances, task_history, broken_summary, recent_activity, event_log, import_errors, watchlist)
+- [x] **CLN-02**: All deprecated Airflow-specific modules removed (api/client.py, api/poller.py, metrics/aggregations.py, metrics/critical_path.py, metrics/error_extract.py, metrics/sparkline.py, export.py)
+- [x] **CLN-03**: Tests for removed screens deleted (test_metrics.py, test_failure_heatmap.py, test_event_log_loader.py)
 - [x] **CLN-04**: app.py SCREENS dict and BINDINGS cleaned to remove all deprecated screen references
 
 ### Data Layer
@@ -92,7 +92,7 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CLN-01 | Phase 1 | Pending |
+| CLN-01 | Phase 1 | Complete |
 | CLN-02 | Phase 1 | Pending |
 | CLN-03 | Phase 1 | Pending |
 | CLN-04 | Phase 1 | Complete |
