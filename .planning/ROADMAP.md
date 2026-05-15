@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Cleanup** - Remove all deprecated Airflow screens, modules, and tests — clean slate for dbt work (completed 2026-05-14)
 - [ ] **Phase 2: dbt Data Layer** - Build terminair/dbt/ package with full unit coverage and fixture files; no screens yet
 - [ ] **Phase 3: Config + CLI Extension** - Extend config.py with DbtConfig/SnowflakeConfig and add --manifest/--run-results/--dag/--demo CLI flags
-- [ ] **Phase 4: Screens** - Build all four new dbt screens wired to StateAggregator/MockDataProvider; replace app.py routing
+- [x] **Phase 4: Screens** - Build all four new dbt screens wired to StateAggregator/MockDataProvider; replace app.py routing (completed 2026-05-15)
 - [ ] **Phase 5: Tests + Build** - Full test suite for the dbt layer, extend test_read_only, add Makefile targets, verify end-to-end demo mode
 
 ## Phase Details
@@ -96,7 +96,7 @@ Plans:
 - [x] 04-01-PLAN.md — Close SCR-01/SCR-03/SCR-04 gaps: ModelListScreen header+statusbar, LineageScreen depth=4, ModelDetailScreen 1-5 tab bindings + scrollable SQL
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 04-02-PLAN.md — Automated regression gate + manual --demo smoke verification of all five SCR requirements
+- [x] 04-02-PLAN.md — Automated regression gate + manual --demo smoke verification of all five SCR requirements
 
 **UI hint**: yes
 
@@ -123,5 +123,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Cleanup | 2/2 | Complete   | 2026-05-14 |
 | 2. dbt Data Layer | 3/5 | In Progress|  |
 | 3. Config + CLI Extension | 0/1 | Not started | - |
-| 4. Screens | 1/2 | In Progress|  |
+| 4. Screens | 2/2 | Complete   | 2026-05-15 |
 | 5. Tests + Build | 0/TBD | Not started | - |
