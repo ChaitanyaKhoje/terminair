@@ -50,13 +50,17 @@ class ModelDetailScreen(DbtScreen):
     }
     """
 
+    # NOTE: Keys 1-4 intentionally shadow app-level screen-switching bindings while
+    # ModelDetailScreen is active. This matches the SCR-04 requirement ("keys 1-5
+    # switch to the corresponding tab"). Users return to the model list with Esc/q,
+    # not by pressing a number key from the detail view. See 04-01-PLAN.md Task 3.
     BINDINGS = DbtScreen.BINDINGS + [
         Binding("enter", "noop", "Open"),
-        Binding("1", "switch_tab('tab-1')", "Status", show=False),
-        Binding("2", "switch_tab('tab-2')", "Structure", show=False),
-        Binding("3", "switch_tab('tab-3')", "Refs", show=False),
-        Binding("4", "switch_tab('tab-4')", "SQL", show=False),
-        Binding("5", "switch_tab('tab-5')", "Regression", show=False),
+        Binding("1", "switch_tab('tab-status')", "Status", show=False),
+        Binding("2", "switch_tab('tab-structure')", "Structure", show=False),
+        Binding("3", "switch_tab('tab-refs')", "Refs", show=False),
+        Binding("4", "switch_tab('tab-sql')", "SQL", show=False),
+        Binding("5", "switch_tab('tab-regression')", "Regression", show=False),
     ]
 
     def compose(self):
@@ -64,18 +68,20 @@ class ModelDetailScreen(DbtScreen):
             yield Static("dbt model detail", id="detail-header")
             yield Static("", id="detail-subheader")
             with TabbedContent(id="detail-tabs"):
-                yield TabPane("Status", Static("", id="detail-status", classes="detail-pane"))
-                yield TabPane("Structure", Static("", id="detail-structure", classes="detail-pane"))
+                yield TabPane("Status", Static("", id="detail-status", classes="detail-pane"), id="tab-status")
+                yield TabPane("Structure", Static("", id="detail-structure", classes="detail-pane"), id="tab-structure")
                 yield TabPane(
                     "Variables+Refs",
                     Static("", id="detail-refs", classes="detail-pane"),
+                    id="tab-refs",
                 )
-                with TabPane("SQL"):
+                with TabPane("SQL", id="tab-sql"):
                     with VerticalScroll(id="detail-sql-scroll"):
                         yield Static("", id="detail-sql", classes="detail-pane")
                 yield TabPane(
                     "Regression",
                     Static("", id="detail-regression", classes="detail-pane"),
+                    id="tab-regression",
                 )
 
     async def on_mount(self) -> None:
@@ -154,4 +160,7 @@ class ModelDetailScreen(DbtScreen):
         return None
 
     def action_switch_tab(self, tab_id: str) -> None:
-        self.query_one("#detail-tabs", TabbedContent).active = tab_id
+        try:
+            self.query_one("#detail-tabs", TabbedContent).active = tab_id
+        except Exception as e:
+            self._flash_error(f"Tab {tab_id} not found: {str(e)[:60]}")
