@@ -32,11 +32,11 @@
 
 ### Screens
 
-- [ ] **SCR-01**: ModelListScreen (key 1) — topbar with connection + clock, tag filter tabs cycled with t, text filter with /, DataTable with status/model/tag/status_text/duration/rows/row_delta/dag_id columns, bottom statusbar with counts and regression warning count
-- [ ] **SCR-02**: ProblemsScreen (key 2) — two stacked sections: active failures (upstream-caused vs self-caused distinction) and regression signals (severity-colored); no modals; Enter → ModelDetailScreen
-- [ ] **SCR-03**: LineageScreen (key 3) — ASCII tree model mode (4-hop depth default, +/- expand/collapse) and tag/group mode (flat list by DAG layer); toggled with m/g; Rich markup for status colors
-- [ ] **SCR-04**: ModelDetailScreen (Enter from any screen) — 5 tabs (Status, Structure, Variables+Refs, SQL, Regression) navigated with 1-5 or arrow keys; full compiled SQL scrollable; no modal overlays
-- [ ] **SCR-05**: All screens share consistent filter (/ to open, Esc to clear), Esc to back, r to refresh, : for command palette, q to quit
+- [x] **SCR-01**: ModelListScreen (key 1) — topbar with connection + clock, tag filter tabs cycled with t, text filter with /, DataTable with status/model/tag/status_text/duration/rows/row_delta/dag_id columns, bottom statusbar with counts and regression warning count
+- [x] **SCR-02**: ProblemsScreen (key 2) — two stacked sections: active failures (upstream-caused vs self-caused distinction) and regression signals (severity-colored); no modals; Enter → ModelDetailScreen
+- [x] **SCR-03**: LineageScreen (key 3) — ASCII tree model mode (4-hop depth default, +/- expand/collapse) and tag/group mode (flat list by DAG layer); toggled with m/g; Rich markup for status colors
+- [x] **SCR-04**: ModelDetailScreen (Enter from any screen) — 5 tabs (Status, Structure, Variables+Refs, SQL, Regression) navigated with 1-5 or arrow keys; full compiled SQL scrollable; no modal overlays
+- [x] **SCR-05**: All screens share consistent filter (/ to open, Esc to clear), Esc to back, r to refresh, : for command palette, q to quit
 
 ### Config + CLI
 
@@ -114,11 +114,11 @@
 | CFG-03 | Phase 3 | Complete |
 | CFG-04 | Phase 3 | Complete |
 | CFG-05 | Phase 3 | Complete |
-| SCR-01 | Phase 4 | Pending |
-| SCR-02 | Phase 4 | Pending |
-| SCR-03 | Phase 4 | Pending |
-| SCR-04 | Phase 4 | Pending |
-| SCR-05 | Phase 4 | Pending |
+| SCR-01 | Phase 4 | Complete |
+| SCR-02 | Phase 4 | Complete |
+| SCR-03 | Phase 4 | Complete |
+| SCR-04 | Phase 4 | Complete |
+| SCR-05 | Phase 4 | Complete |
 | TST-01 | Phase 5 | Pending |
 | TST-02 | Phase 5 | Pending |
 | TST-03 | Phase 5 | Pending |

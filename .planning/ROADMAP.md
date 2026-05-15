@@ -93,7 +93,7 @@ Plans:
 
 Plans:
 **Wave 1**
-- [ ] 04-01-PLAN.md — Close SCR-01/SCR-03/SCR-04 gaps: ModelListScreen header+statusbar, LineageScreen depth=4, ModelDetailScreen 1-5 tab bindings + scrollable SQL
+- [x] 04-01-PLAN.md — Close SCR-01/SCR-03/SCR-04 gaps: ModelListScreen header+statusbar, LineageScreen depth=4, ModelDetailScreen 1-5 tab bindings + scrollable SQL
 
 **Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 04-02-PLAN.md — Automated regression gate + manual --demo smoke verification of all five SCR requirements
@@ -123,5 +123,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Cleanup | 2/2 | Complete   | 2026-05-14 |
 | 2. dbt Data Layer | 3/5 | In Progress|  |
 | 3. Config + CLI Extension | 0/1 | Not started | - |
-| 4. Screens | 0/TBD | Not started | - |
+| 4. Screens | 1/2 | In Progress|  |
 | 5. Tests + Build | 0/TBD | Not started | - |
