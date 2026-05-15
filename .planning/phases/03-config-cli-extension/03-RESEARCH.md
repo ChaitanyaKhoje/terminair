@@ -293,17 +293,19 @@ No missing dependencies. All tooling is available.
 |---|-------|---------|---------------|
 | A1 | `_flash_warn` is safe to call from `_build_data_provider` during `on_mount` because FlashBar is composed before `on_mount` fires | Common Pitfalls | Calling it crashes with NoMatches; but `_flash_warn` already has try/except so it silently skips — acceptable degradation |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should `_flash_warn` be called in addition to `_logger.warning`, or instead of?**
    - What we know: CONTEXT.md says "log warning in topbar"; current code logs to file logger only
    - What's unclear: Whether file logger output is sufficient for the dev experience, or TUI feedback is required
    - Recommendation: Call both — keep `_logger.warning` for log files; add `self._flash_warn()` immediately after for TUI visibility. Low risk since `_flash_warn` is guarded by try/except.
+   - RESOLVED: Call both. Keep `_logger.warning` for log files, add `self._flash_warn()` immediately after in each branch. The `_flash_warn` wrapper already has try/except so it is safe to call in any context.
 
 2. **Is the `--dag` flag conflict with original Airflow jump-to-DAG fully resolved?**
    - What we know: Current cli.py has `--dag` with `multiple=True` for dag_names list; no startup jump flag exists
    - What's unclear: Whether any users or scripts relied on the old single-value `--dag` for navigation
    - Recommendation: Confirm in CLAUDE.md or README that `--dag` now means "include this DAG in AirflowBridge scope" — a one-line doc fix.
+   - RESOLVED: Fully resolved. The old single-value `--dag` navigation flag was removed in Phase 1 cleanup along with all Airflow screens. The current `--dag` (multiple=True) is a clean new CLI surface with no legacy users to migrate.
 
 ## Sources
 
