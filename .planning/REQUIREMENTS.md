@@ -40,11 +40,11 @@
 
 ### Config + CLI
 
-- [ ] **CFG-01**: DbtConfig Pydantic model added to config.py with manifest_path, run_results_path, run_results_previous_path, manifest_previous_path, dag_names fields; all optional
-- [ ] **CFG-02**: SnowflakeConfig Pydantic model added to config.py with account, user, password, warehouse, database, role fields; entire block optional
-- [ ] **CFG-03**: Connection model extended with optional dbt and snowflake fields
-- [ ] **CFG-04**: CLI adds --manifest, --run-results, --dag (repeatable), --demo flags; --dag appends to config dag_names
-- [ ] **CFG-05**: --demo flag wires app to MockDataProvider with no external services required; fallback triggered automatically when manifest_path missing or file not found
+- [x] **CFG-01**: DbtConfig Pydantic model added to config.py with manifest_path, run_results_path, run_results_previous_path, manifest_previous_path, dag_names fields; all optional
+- [x] **CFG-02**: SnowflakeConfig Pydantic model added to config.py with account, user, password, warehouse, database, role fields; entire block optional
+- [x] **CFG-03**: Connection model extended with optional dbt and snowflake fields
+- [x] **CFG-04**: CLI adds --manifest, --run-results, --dag (repeatable), --demo flags; --dag appends to config dag_names
+- [x] **CFG-05**: --demo flag wires app to MockDataProvider with no external services required; fallback triggered automatically when manifest_path missing or file not found
 
 ### Build + Demo
 
@@ -109,11 +109,11 @@
 | FIX-03 | Phase 2 | Complete |
 | FIX-04 | Phase 2 | Complete |
 | FIX-05 | Phase 2 | Complete |
-| CFG-01 | Phase 3 | Pending |
-| CFG-02 | Phase 3 | Pending |
-| CFG-03 | Phase 3 | Pending |
-| CFG-04 | Phase 3 | Pending |
-| CFG-05 | Phase 3 | Pending |
+| CFG-01 | Phase 3 | Complete |
+| CFG-02 | Phase 3 | Complete |
+| CFG-03 | Phase 3 | Complete |
+| CFG-04 | Phase 3 | Complete |
+| CFG-05 | Phase 3 | Complete |
 | SCR-01 | Phase 4 | Pending |
 | SCR-02 | Phase 4 | Pending |
 | SCR-03 | Phase 4 | Pending |

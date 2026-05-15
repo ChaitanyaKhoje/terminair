@@ -77,7 +77,7 @@ Plans:
 
 Plans:
 **Wave 1**
-- [ ] 03-01-PLAN.md — Audit CFG-01 through CFG-04 (pre-implemented), add _flash_warn topbar warnings for all fallback branches (CFG-05 gap), add manifest-missing flash_warn test
+- [x] 03-01-PLAN.md — Audit CFG-01 through CFG-04 (pre-implemented), add _flash_warn topbar warnings for all fallback branches (CFG-05 gap), add manifest-missing flash_warn test
 
 ### Phase 4: Screens
 **Goal**: All four dbt screens exist, are navigable via number keys, share consistent filter/back/refresh/command-palette bindings, and work against both StateAggregator and MockDataProvider
