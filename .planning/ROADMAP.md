@@ -73,7 +73,11 @@ Plans:
   2. Connection model accepts optional dbt and snowflake sub-blocks without breaking existing config loading
   3. Running `python -m terminair --demo` starts the app against MockDataProvider with no Airflow, no manifest file, and no Snowflake credentials required
   4. `--dag` flag is repeatable and appends DAG IDs to config dag_names; `--manifest` and `--run-results` override config file paths
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+**Wave 1**
+- [ ] 03-01-PLAN.md — Audit CFG-01 through CFG-04 (pre-implemented), add _flash_warn topbar warnings for all fallback branches (CFG-05 gap), add manifest-missing flash_warn test
 
 ### Phase 4: Screens
 **Goal**: All four dbt screens exist, are navigable via number keys, share consistent filter/back/refresh/command-palette bindings, and work against both StateAggregator and MockDataProvider
@@ -110,6 +114,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Cleanup | 2/2 | Complete   | 2026-05-14 |
 | 2. dbt Data Layer | 3/5 | In Progress|  |
-| 3. Config + CLI Extension | 0/TBD | Not started | - |
+| 3. Config + CLI Extension | 0/1 | Not started | - |
 | 4. Screens | 0/TBD | Not started | - |
 | 5. Tests + Build | 0/TBD | Not started | - |
