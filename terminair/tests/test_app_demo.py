@@ -44,11 +44,13 @@ def test_manifest_configured_but_missing_calls_flash_warn(tmp_path, monkeypatch)
     app = TerminairApp(file_config, demo_mode=False)
 
     flash_warn_calls: list[str] = []
+    # monkeypatch must be applied before get_data_provider(), which calls _build_data_provider lazily
     monkeypatch.setattr(app, "_flash_warn", lambda text: flash_warn_calls.append(text))
 
     provider = app.get_data_provider()
 
     assert isinstance(provider, MockDataProvider)
-    assert len(flash_warn_calls) == 1
-    assert "manifest" in flash_warn_calls[0].lower()
+    assert len(flash_warn_calls) == 1, f"Expected exactly 1 warn, got: {flash_warn_calls}"
+    assert "missing" in flash_warn_calls[0].lower(), f"Unexpected message: {flash_warn_calls[0]}"
+    assert "manifest" in flash_warn_calls[0].lower(), f"Unexpected message: {flash_warn_calls[0]}"
 
