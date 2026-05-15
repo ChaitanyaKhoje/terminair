@@ -160,9 +160,13 @@ class ModelListScreen(DbtScreen):
 
     def _update_statusbar(self) -> None:
         signals = RegressionAnalyzer(self._models).analyze()
+        # NOTE: grain/upstream signals (grain_added, grain_removed,
+        # upstream_schema_change) require a previous snapshot via the
+        # `previous` argument. Without run_results_previous_path configured,
+        # those signals are always absent and this count is conservative.
         warnings = sum(1 for s in signals if s.severity in ("critical", "warning"))
         self.query_one("#model-list-status", Static).update(
-            f"{len(self._models)} models  |  {warnings} regression warnings"
+            f"{len(self._models)} models  |  {warnings} row-delta regression warnings"
         )
 
     def action_cycle_tag_filter(self) -> None:
