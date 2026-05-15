@@ -1,21 +1,32 @@
+# ruff: noqa: UP017
 """Textual App subclass for Terminair."""
 
-import asyncio as _asyncio
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.widgets import Static
 
-if TYPE_CHECKING:
-    from textual.timer import Timer
-
 from terminair.config import Config
-from terminair.logging_utils import get_logger, sanitize_error
+from terminair.dbt.aggregator import StateAggregator
+from terminair.dbt.artifacts import ArtifactReader
+from terminair.dbt.manifest import ManifestLoader
+from terminair.dbt.mock_data import MockDataProvider
+from terminair.dbt.snowflake_client import SnowflakeClient
+from terminair.logging_utils import get_logger
+from terminair.screens import (
+    LineageScreen,
+    ModelDetailScreen,
+    ModelListScreen,
+    ProblemsScreen,
+)
 from terminair.themes.dark import DARK_CSS
 from terminair.widgets.command_palette import CommandExecutor, CommandPalette
 from terminair.widgets.flash import FlashBar
+
+if TYPE_CHECKING:
+    from textual.timer import Timer
 
 _logger = get_logger("terminair.app")
 
@@ -23,7 +34,12 @@ _logger = get_logger("terminair.app")
 class TerminairApp(App):
     CSS = DARK_CSS
     ENABLE_COMMAND_PALETTE = False
-    SCREENS = {}
+    SCREENS = {
+        "model_list": ModelListScreen,
+        "problems": ProblemsScreen,
+        "lineage": LineageScreen,
+        "detail": ModelDetailScreen,
+    }
     DEFAULT_AUTO_FOCUS = ""
 
     BINDINGS = [
@@ -32,15 +48,22 @@ class TerminairApp(App):
         Binding("escape", "back", "Back"),
         Binding("r", "refresh", "Refresh"),
         Binding(":", "command_palette", "Command"),
+        Binding("1", "switch_model_list", "Models"),
+        Binding("2", "switch_problems", "Problems"),
+        Binding("3", "switch_lineage", "Lineage"),
+        Binding("4", "switch_detail", "Detail"),
     ]
 
-    def __init__(self, config: Config, **kwargs):
+    def __init__(self, config: Config, demo_mode: bool = False, **kwargs):
         super().__init__(**kwargs)
         self._config = config
+        self._demo_mode = demo_mode
         self._nav_stack: list[tuple] = []
         self._auto_refresh_enabled = False
         self._last_refresh_at: datetime | None = None
-        self._live_timer: "Timer | None" = None
+        self._live_timer: Timer | None = None
+        self._data_provider = None
+        self.selected_model_id: str = ""
 
     def compose(self) -> ComposeResult:
         yield CommandPalette()
@@ -62,8 +85,74 @@ class TerminairApp(App):
             pass
 
     def _touch_refresh(self) -> None:
-        self._last_refresh_at = datetime.now(UTC)
+        self._last_refresh_at = datetime.now(timezone.utc)
         self._update_refresh_status()
+
+    def _build_data_provider(self):
+        if self._demo_mode:
+            _logger.info("Starting Terminair in demo mode")
+            return MockDataProvider()
+
+        active_connection = self._config.connections.get(
+            self._config.settings.default_connection
+        )
+        if active_connection is None or active_connection.dbt is None:
+            _logger.warning("No dbt configuration found — using demo data")
+            self._flash_warn("No dbt configuration — running demo data")
+            return MockDataProvider()
+
+        dbt_config = active_connection.dbt
+        manifest_path = dbt_config.manifest_path
+        if manifest_path is None or not manifest_path.exists():
+            _logger.warning(
+                "dbt manifest missing at %s — using demo data",
+                manifest_path or "<unset>",
+            )
+            self._flash_warn(f"dbt manifest missing at {manifest_path or 'unset'} — using demo data")
+            return MockDataProvider()
+
+        try:
+            manifest = ManifestLoader(manifest_path)
+            results_path = dbt_config.run_results_path or manifest_path.with_name(
+                "run_results.json"
+            )
+            artifacts = ArtifactReader(
+                results_path,
+                dbt_config.run_results_previous_path,
+            )
+        except Exception as exc:
+            _logger.warning("dbt data layer unavailable — using demo data: %s", exc)
+            self._flash_warn("dbt data layer unavailable — using demo data")
+            return MockDataProvider()
+
+        bridge = None
+        if active_connection.url and active_connection.auth is not None:
+            try:
+                from terminair.dbt.airflow_bridge import AirflowBridge
+
+                bridge = AirflowBridge(active_connection)
+            except Exception as exc:
+                _logger.warning("Airflow bridge unavailable — continuing without it: %s", exc)
+                self._flash_warn("Airflow bridge unavailable — continuing without it")
+
+        snowflake = None
+        if active_connection.snowflake is not None:
+            try:
+                snowflake = SnowflakeClient()
+            except Exception as exc:
+                _logger.warning("Snowflake client unavailable — continuing without it: %s", exc)
+
+        return StateAggregator(
+            manifest,
+            artifacts,
+            bridge=bridge,
+            snowflake=snowflake,
+        )
+
+    def get_data_provider(self):
+        if self._data_provider is None:
+            self._data_provider = self._build_data_provider()
+        return self._data_provider
 
     def _update_refresh_status(self) -> None:
         try:
@@ -161,6 +250,22 @@ class TerminairApp(App):
     def action_jump_to_dag(self, dag_id: str = ""):
         pass
 
+    def action_switch_model_list(self):
+        self._switch_to("model_list")
+
+    def action_switch_problems(self):
+        self._switch_to("problems")
+
+    def action_switch_lineage(self):
+        self._switch_to("lineage")
+
+    def action_switch_detail(self, model_id: str = ""):
+        if model_id:
+            self.selected_model_id = model_id
+        if not self.selected_model_id:
+            return
+        self._switch_to("detail")
+
     def action_switch_theme(self, theme: str = "dark"):
         pass
 
@@ -168,7 +273,12 @@ class TerminairApp(App):
         pass
 
     def action_apply_filter(self, filter_str: str = ""):
-        pass
+        try:
+            screen = self.screen
+            if hasattr(screen, "_on_filter_change"):
+                screen._on_filter_change(filter_str)  # type: ignore[attr-defined]
+        except Exception:
+            pass
 
     def action_set_option(self, key: str = "", value: str = ""):
         pass
@@ -178,3 +288,7 @@ class TerminairApp(App):
 
     def get_config(self) -> Config:
         return self._config
+
+    def on_mount(self) -> None:
+        self.get_data_provider()
+        self._switch_to("model_list")
