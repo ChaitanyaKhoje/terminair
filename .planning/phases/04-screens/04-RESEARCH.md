@@ -337,17 +337,19 @@ warning_count = sum(1 for s in signals if s.severity in ("critical", "warning"))
 
 All other claims in this research were verified directly from source code or Textual runtime.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Clock update frequency**
    - What we know: `set_interval(1.0, callback)` works in Textual; calling it in `on_mount` is safe.
    - What's unclear: Whether the user expects a live-ticking clock or just a "last refreshed" timestamp.
    - Recommendation: Implement as a 1-second interval updating only the header Static. If it causes performance concern, increase interval to 30s.
+   - RESOLVED: 1-second interval via `set_interval(1.0, self._update_header)` in `on_mount`. Clock is isolated from data reload path.
 
 2. **Regression count scope in ModelListScreen**
    - What we know: `RegressionAnalyzer(self._models).analyze()` computes all signals.
    - What's unclear: Whether the count should be total signals or only critical+warning.
    - Recommendation: Show critical+warning count only (info signals are low-signal noise), labeled "N warnings."
+   - RESOLVED: Show critical+warning count only — `sum(1 for s in signals if s.severity in ("critical", "warning"))`, labeled as regression warnings.
 
 ## Environment Availability
 
