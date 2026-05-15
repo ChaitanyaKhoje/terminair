@@ -111,7 +111,11 @@ Plans:
   4. tests/test_read_only.py extended: AirflowBridge has zero POST/PUT/DELETE/PATCH methods (same enforcement as original AirflowClient test)
   5. `make dbt-demo` starts successfully and all 4 screens, all keybind paths, all 5 ModelDetailScreen tabs, and all regression signal types are reachable with no external service
   6. Dockerfile exists and builds successfully; mounts local target/ directory and accepts AIRFLOW_URL env var
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+**Wave 1**
+- [ ] 05-01-PLAN.md — Split test_regression_and_mock.py, add upstream_schema_change test, fix test_read_only.py placeholder, wire AIRFLOW_URL in Dockerfile CMD
 
 ## Progress
 
@@ -124,4 +128,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. dbt Data Layer | 3/5 | In Progress|  |
 | 3. Config + CLI Extension | 0/1 | Not started | - |
 | 4. Screens | 2/2 | Complete   | 2026-05-15 |
-| 5. Tests + Build | 0/TBD | Not started | - |
+| 5. Tests + Build | 0/1 | Not started | - |
