@@ -5,6 +5,7 @@ from __future__ import annotations
 from rich.text import Text
 from textual.binding import Binding
 from textual.containers import Vertical
+from textual.timer import Timer
 from textual.widgets import DataTable, Static
 
 from terminair.dbt.models import ModelState
@@ -76,6 +77,7 @@ class ModelListScreen(DbtScreen):
         super().__init__()
         self._selected_tag = "all"
         self._tags: list[str] = []
+        self._clock_timer: Timer | None = None
 
     def compose(self):
         with Vertical():
@@ -88,7 +90,14 @@ class ModelListScreen(DbtScreen):
 
     async def on_mount(self) -> None:
         await self._load_models()
-        self.set_interval(1.0, self._update_header)
+
+    def on_screen_resume(self) -> None:
+        self._clock_timer = self.set_interval(1.0, self._update_header)
+
+    def on_screen_suspend(self) -> None:
+        if self._clock_timer is not None:
+            self._clock_timer.stop()
+            self._clock_timer = None
 
     def _filtered_models(self) -> list[ModelState]:
         models = self._models
