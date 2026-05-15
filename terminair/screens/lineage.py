@@ -91,7 +91,7 @@ class LineageScreen(DbtScreen):
         if rows:
             visible_ids = [node_id for node_id, _, _, _ in rows]
             selected = next((i for i, node_id in enumerate(visible_ids) if node_id == self._selected_model_id), 0)
-            table.cursor_row = selected
+            table.move_cursor(row=selected)
             self._set_selected_model(visible_ids[selected])
 
     def _render_model_tree(self):

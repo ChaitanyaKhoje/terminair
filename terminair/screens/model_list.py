@@ -138,7 +138,7 @@ class ModelListScreen(DbtScreen):
 
         if visible_models:
             selected = next((i for i, model in enumerate(visible_models) if model.node_id == self._selected_model_id), 0)
-            table.cursor_row = selected
+            table.move_cursor(row=selected)
             self._set_selected_model(visible_models[selected].node_id)
 
     def _update_meta(self) -> None:
