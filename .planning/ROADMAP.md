@@ -89,7 +89,15 @@ Plans:
   3. LineageScreen (key 3) renders an ASCII tree in model mode (m) with +/- depth expansion and a flat DAG-layer list in tag/group mode (g)
   4. ModelDetailScreen (Enter from any screen) provides 5 navigable tabs (Status, Structure, Variables+Refs, SQL, Regression) with full compiled SQL scrollable and no modal overlays
   5. All screens respond consistently to /, Esc, r, :, and q; pressing Esc from any detail screen returns to the previous screen without losing navigation position
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+**Wave 1**
+- [ ] 04-01-PLAN.md — Close SCR-01/SCR-03/SCR-04 gaps: ModelListScreen header+statusbar, LineageScreen depth=4, ModelDetailScreen 1-5 tab bindings + scrollable SQL
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 04-02-PLAN.md — Automated regression gate + manual --demo smoke verification of all five SCR requirements
+
 **UI hint**: yes
 
 ### Phase 5: Tests + Build
