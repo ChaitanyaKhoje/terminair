@@ -142,6 +142,7 @@ class TerminairApp(App):
                 snowflake = SnowflakeClient()
             except Exception as exc:
                 _logger.warning("Snowflake client unavailable — continuing without it: %s", exc)
+                self._flash_warn("Snowflake client unavailable — continuing without it")
 
         return StateAggregator(
             manifest,
