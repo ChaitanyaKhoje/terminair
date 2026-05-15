@@ -108,7 +108,8 @@ class TerminairApp(App):
                 "dbt manifest missing at %s — using demo data",
                 manifest_path or "<unset>",
             )
-            self._flash_warn(f"dbt manifest missing at {manifest_path or 'unset'} — using demo data")
+            path_label = manifest_path.name if manifest_path else "<unset>"
+            self._flash_warn(f"dbt manifest missing ({path_label}) — using demo data")
             return MockDataProvider()
 
         try:
