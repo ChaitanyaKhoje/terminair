@@ -186,3 +186,19 @@ class TestStateAggregator:
         assert node_b.has_upstream_failure is True, (
             "node_b should have has_upstream_failure=True because its upstream (node_a) is skipped"
         )
+
+    def test_get_previous_models_returns_list(self, manifest, artifacts):
+        from terminair.dbt.aggregator import StateAggregator
+
+        agg = StateAggregator(manifest, artifacts)
+        result = asyncio.run(agg.get_previous_models())
+        assert isinstance(result, list)
+        assert len(result) > 0
+        assert all(m.node_id != "" for m in result)
+
+    def test_get_previous_models_is_async(self, manifest, artifacts):
+        import inspect
+        from terminair.dbt.aggregator import StateAggregator
+
+        agg = StateAggregator(manifest, artifacts)
+        assert inspect.iscoroutinefunction(agg.get_previous_models) is True

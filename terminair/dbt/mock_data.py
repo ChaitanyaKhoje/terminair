@@ -267,6 +267,43 @@ class MockDataProvider:
         """
         return list(self._models)
 
+    async def get_previous_models(self) -> list[ModelState]:
+        """Return a list of 10 previous ModelState instances with deliberate grain drift.
+
+        Two models have grain_columns intentionally different from get_models():
+          - fct_revenue_daily: grain_columns=["revenue_date", "region"]
+            (current is ["revenue_date"] → grain_removed signal on fct_revenue_daily)
+          - fct_risk_exposure: grain_columns=["risk_date"]
+            (current is ["risk_date", "entity_id"] → grain_added signal on fct_risk_exposure)
+
+        All other fields mirror current model values so only grain signals fire.
+        Declared async def (no awaits) for interface symmetry with get_models().
+        """
+        current = list(self._models)
+        previous: list[ModelState] = []
+        grain_overrides: dict[str, list[str]] = {
+            "fct_revenue_daily": ["revenue_date", "region"],
+            "fct_risk_exposure": ["risk_date"],
+        }
+        for m in current:
+            grain = grain_overrides.get(m.name, list(m.grain_columns))
+            previous.append(
+                ModelState(
+                    node_id=m.node_id,
+                    name=m.name,
+                    tag=m.tag,
+                    status=m.status,
+                    dag_id=m.dag_id,
+                    task_id=m.task_id,
+                    materialization=m.materialization,
+                    schema_name=m.schema_name,
+                    database_name=m.database_name,
+                    has_upstream_failure=m.has_upstream_failure,
+                    grain_columns=grain,
+                )
+            )
+        return previous
+
     def tick(self) -> None:
         """Advance the simulation by one tick (approximately 5 seconds).
 

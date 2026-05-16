@@ -141,3 +141,28 @@ class TestMockDataProvider:
         models1.clear()  # Mutate the returned list
         models2 = asyncio.run(mdp.get_models())
         assert len(models2) == 10, "Internal state was mutated — get_models() must return a copy"
+
+    def test_get_previous_models_grain_shifted(self):
+        """get_previous_models returns 10 models with deliberately shifted grain_columns."""
+        from terminair.dbt.mock_data import MockDataProvider
+
+        mdp = MockDataProvider()
+        prev = asyncio.run(mdp.get_previous_models())
+        assert len(prev) == 10
+        fct_revenue = next(m for m in prev if m.name == "fct_revenue_daily")
+        # grain_columns must differ from current (["revenue_date"])
+        assert fct_revenue.grain_columns != ["revenue_date"]
+        assert inspect.iscoroutinefunction(mdp.get_previous_models) is True
+
+    def test_get_previous_models_enables_grain_signals(self):
+        """RegressionAnalyzer with previous snapshot from MockDataProvider yields grain signals."""
+        from terminair.dbt.mock_data import MockDataProvider
+        from terminair.dbt.regression import RegressionAnalyzer
+
+        mdp = MockDataProvider()
+        current = asyncio.run(mdp.get_models())
+        prev = asyncio.run(mdp.get_previous_models())
+        signals = RegressionAnalyzer(current).analyze(previous=prev)
+        grain_signal_types = {"grain_added", "grain_removed"}
+        found = [s for s in signals if s.signal_type in grain_signal_types]
+        assert len(found) >= 1, f"Expected at least one grain signal, got: {signals}"

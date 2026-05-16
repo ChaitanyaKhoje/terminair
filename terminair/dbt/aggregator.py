@@ -211,3 +211,46 @@ class StateAggregator:
             )
 
         return models
+
+    async def get_previous_models(self) -> list[ModelState]:
+        """Return a lightweight list[ModelState] from the previous run_results fixture.
+
+        Only node_id, name, grain_columns, and materialization are populated.
+        All other fields use ModelState defaults (empty string, False, None, [], {}).
+
+        Returns [] when no previous run_results path was provided to ArtifactReader.
+        Declared async def (no awaits) for interface symmetry with get_models().
+        """
+        models: list[ModelState] = []
+
+        for node_id in self._manifest.get_all_node_ids():
+            prev_result = self._artifacts.get_previous_result(node_id)
+            if prev_result is None:
+                continue
+
+            node = self._manifest.get_node(node_id)
+            if node is None:
+                continue
+
+            name = node.get("name", node_id.split(".")[-1])
+            config = self._manifest.get_config(node_id)
+            materialization = config.get("materialized", "unknown")
+            grain_columns = self._manifest.get_grain_columns(node_id)
+
+            models.append(
+                ModelState(
+                    node_id=node_id,
+                    name=name,
+                    tag="",
+                    status="",
+                    dag_id="",
+                    task_id="",
+                    materialization=materialization,
+                    schema_name="",
+                    database_name="",
+                    has_upstream_failure=False,
+                    grain_columns=grain_columns,
+                )
+            )
+
+        return models
