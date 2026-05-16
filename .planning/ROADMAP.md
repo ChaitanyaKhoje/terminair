@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 2: dbt Data Layer** - Build terminair/dbt/ package with full unit coverage and fixture files; no screens yet
 - [ ] **Phase 3: Config + CLI Extension** - Extend config.py with DbtConfig/SnowflakeConfig and add --manifest/--run-results/--dag/--demo CLI flags
 - [x] **Phase 4: Screens** - Build all four new dbt screens wired to StateAggregator/MockDataProvider; replace app.py routing (completed 2026-05-15)
-- [ ] **Phase 5: Tests + Build** - Full test suite for the dbt layer, extend test_read_only, add Makefile targets, verify end-to-end demo mode
+- [x] **Phase 5: Tests + Build** - Full test suite for the dbt layer, extend test_read_only, add Makefile targets, verify end-to-end demo mode (completed 2026-05-16)
 
 ## Phase Details
 
@@ -115,7 +115,7 @@ Plans:
 
 Plans:
 **Wave 1**
-- [ ] 05-01-PLAN.md — Split test_regression_and_mock.py, add upstream_schema_change test, fix test_read_only.py placeholder, wire AIRFLOW_URL in Dockerfile CMD
+- [x] 05-01-PLAN.md — Split test_regression_and_mock.py, add upstream_schema_change test, fix test_read_only.py placeholder, wire AIRFLOW_URL in Dockerfile CMD
 
 ## Progress
 
@@ -128,4 +128,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. dbt Data Layer | 3/5 | In Progress|  |
 | 3. Config + CLI Extension | 0/1 | Not started | - |
 | 4. Screens | 2/2 | Complete   | 2026-05-15 |
-| 5. Tests + Build | 0/1 | Not started | - |
+| 5. Tests + Build | 1/1 | Complete   | 2026-05-16 |

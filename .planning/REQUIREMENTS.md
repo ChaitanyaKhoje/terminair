@@ -48,17 +48,17 @@
 
 ### Build + Demo
 
-- [ ] **BLD-01**: Makefile adds dbt-demo target (runs with --demo flag, no Airflow needed)
-- [ ] **BLD-02**: Makefile adds dbt-dev target (points at local target/ directory via --manifest and --run-results)
-- [ ] **BLD-03**: Dockerfile for terminair — mounts local target/ directory and connects to a configurable Airflow URL; enables running terminair without a local Python install
+- [x] **BLD-01**: Makefile adds dbt-demo target (runs with --demo flag, no Airflow needed)
+- [x] **BLD-02**: Makefile adds dbt-dev target (points at local target/ directory via --manifest and --run-results)
+- [x] **BLD-03**: Dockerfile for terminair — mounts local target/ directory and connects to a configurable Airflow URL; enables running terminair without a local Python install
 
 ### Tests
 
-- [ ] **TST-01**: tests/dbt/test_manifest.py — all ManifestLoader methods against fixtures; grain extraction precedence; var() regex; lineage traversal
-- [ ] **TST-02**: tests/dbt/test_regression.py — all 6 signal types; severity thresholds; sort order (critical first)
-- [ ] **TST-03**: tests/dbt/test_aggregator.py — StateAggregator with MockDataProvider injected; has_upstream_failure computation
-- [ ] **TST-04**: tests/dbt/test_mock_data.py — tick() transitions; row_delta_pct recomputation; all signal types represented
-- [ ] **TST-05**: tests/test_read_only.py extended — AirflowBridge has no POST/PUT/DELETE/PATCH methods
+- [x] **TST-01**: tests/dbt/test_manifest.py — all ManifestLoader methods against fixtures; grain extraction precedence; var() regex; lineage traversal
+- [x] **TST-02**: tests/dbt/test_regression.py — all 6 signal types; severity thresholds; sort order (critical first)
+- [x] **TST-03**: tests/dbt/test_aggregator.py — StateAggregator with MockDataProvider injected; has_upstream_failure computation
+- [x] **TST-04**: tests/dbt/test_mock_data.py — tick() transitions; row_delta_pct recomputation; all signal types represented
+- [x] **TST-05**: tests/test_read_only.py extended — AirflowBridge has no POST/PUT/DELETE/PATCH methods
 
 ## v2 Requirements
 
@@ -119,14 +119,14 @@
 | SCR-03 | Phase 4 | Complete |
 | SCR-04 | Phase 4 | Complete |
 | SCR-05 | Phase 4 | Complete |
-| TST-01 | Phase 5 | Pending |
-| TST-02 | Phase 5 | Pending |
-| TST-03 | Phase 5 | Pending |
-| TST-04 | Phase 5 | Pending |
-| TST-05 | Phase 5 | Pending |
-| BLD-01 | Phase 5 | Pending |
-| BLD-02 | Phase 5 | Pending |
-| BLD-03 | Phase 5 | Pending |
+| TST-01 | Phase 5 | Complete |
+| TST-02 | Phase 5 | Complete |
+| TST-03 | Phase 5 | Complete |
+| TST-04 | Phase 5 | Complete |
+| TST-05 | Phase 5 | Complete |
+| BLD-01 | Phase 5 | Complete |
+| BLD-02 | Phase 5 | Complete |
+| BLD-03 | Phase 5 | Complete |
 
 **Coverage:**
 - v1 requirements: 34 total
