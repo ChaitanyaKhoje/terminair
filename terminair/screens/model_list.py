@@ -79,6 +79,7 @@ class ModelListScreen(DbtScreen):
         self._tags: list[str] = []
         self._clock_timer: Timer | None = None
         self._previous_models: list[ModelState] = []
+        self._signals: list = []
 
     async def _load_models(self) -> None:
         provider = self.app_typed.get_data_provider()
@@ -142,6 +143,7 @@ class ModelListScreen(DbtScreen):
             )
 
         self._tags = sorted({tag for model in self._models for tag in model.all_tags} or {m.tag for m in self._models})
+        self._signals = RegressionAnalyzer(self._models).analyze(previous=self._previous_models or None)
         self._update_meta()
         self._update_tag_bar()
         self._update_statusbar()
@@ -178,12 +180,11 @@ class ModelListScreen(DbtScreen):
         )
 
     def _update_statusbar(self) -> None:
-        signals = RegressionAnalyzer(self._models).analyze(previous=self._previous_models or None)
         # NOTE: grain/upstream signals (grain_added, grain_removed,
         # upstream_schema_change) require a previous snapshot via the
         # `previous` argument. Without run_results_previous_path configured,
         # those signals are always absent and this count is conservative.
-        warnings = sum(1 for s in signals if s.severity in ("critical", "warning"))
+        warnings = sum(1 for s in self._signals if s.severity in ("critical", "warning"))
         self.query_one("#model-list-status", Static).update(
             f"{len(self._models)} models  |  {warnings} row-delta regression warnings"
         )
