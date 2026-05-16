@@ -117,6 +117,17 @@ Plans:
 **Wave 1**
 - [x] 05-01-PLAN.md — Split test_regression_and_mock.py, add upstream_schema_change test, fix test_read_only.py placeholder, wire AIRFLOW_URL in Dockerfile CMD
 
+### Phase 05.1: Screen regression signal depth — thread previous-snapshot to screens, fix clock on initial mount (INSERTED)
+
+**Goal**: All three previously-unreachable regression signal types (grain_added, grain_removed, upstream_schema_change) are visible in the TUI when run_results_previous.json is present; the ModelListScreen clock shows a non-empty time on initial launch without navigating away
+**Requirements**: DAT-06, SCR-01
+**Depends on:** Phase 5
+**Plans:** 1 plan
+
+Plans:
+**Wave 1**
+- [ ] 05.1-01-PLAN.md — Add get_previous_models() to StateAggregator and MockDataProvider; wire previous snapshot through three screens; fix on_mount clock
+
 ## Progress
 
 **Execution Order:**
@@ -129,13 +140,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 3. Config + CLI Extension | 0/1 | Not started | - |
 | 4. Screens | 2/2 | Complete   | 2026-05-15 |
 | 5. Tests + Build | 1/1 | Complete   | 2026-05-16 |
-
-### Phase 05.1: Screen regression signal depth — thread previous-snapshot to screens, fix clock on initial mount (INSERTED)
-
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
-**Depends on:** Phase 5
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (run /gsd-plan-phase 05.1 to break down)
+| 5.1. Screen regression signal depth | 0/1 | Not started | - |
