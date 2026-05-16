@@ -287,12 +287,13 @@ ASVS not applicable to this phase (test infrastructure + packaging only).
 | A1 | Splitting test_regression_and_mock.py into two files is the correct approach (vs. creating thin re-import files) | Gap 1+2 | Low — both approaches satisfy the file naming requirement; split is cleaner |
 | A2 | The Dockerfile's non-demo path should rely on TERMINAIR_PASSWORD env var for password (already handled by cli.py line 60) | Gap 4 | Low — if user forgets to set TERMINAIR_PASSWORD, CLI prompts interactively and blocks the container |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Dockerfile CMD: demo-default vs URL-default**
    - What we know: CMD is `--demo`; BLD-03 says "connects to a configurable Airflow URL"
    - What's unclear: Should the container default to demo mode (safe) or Airflow URL mode (requires env vars)?
    - Recommendation: Default to demo; only use `$AIRFLOW_URL` when `TERMINAIR_DEMO` is explicitly unset and `TERMINAIR_USER` is set. This is safe and matches the BLD-03 intent.
+   - RESOLVED: Conditional shell-form CMD — demo-default unless `AIRFLOW_URL` is set and `TERMINAIR_DEMO != 1`. Plan 05-01 Task 3 implements this exactly.
 
 ## Sources
 
