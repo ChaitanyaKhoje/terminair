@@ -1,177 +1,165 @@
 # Terminair
 
-A read-only k9s-style TUI for Apache Airflow.
+A read-only k9s-style TUI for dbt model intelligence. Runs locally, correlates your dbt manifest, run results, and Airflow task status in one terminal view — no browser, no dbt Cloud, no write access.
 
 ## What It Shows
 
-- DAG overview with state, owner, schedule, next run, and bookmark markers
-- Combined errors view for failed runs and import errors
-- Pools, health, SLA misses, resource timeline, and watchlist
-- DAG drill-in with run history, task instances, task history, dataset dependencies, and XComs
-- Read-only API access only; no triggers, clears, or other write actions
+- **ModelList** — all dbt models with status, tag, duration, row count, row delta, and DAG ID; live tag filter (`t`) and text filter (`/`)
+- **Problems** — active failures (upstream-caused vs self-caused) and regression signals (row drops, spikes, grain changes, schema changes) with severity coloring
+- **Lineage** — ASCII dependency tree with configurable depth; toggle between model mode and tag/group mode
+- **ModelDetail** — 5-tab deep-dive per model: Status, Structure, Variables+Refs, SQL (scrollable), Regression
+
+All screens work against a live dbt project or against built-in demo data with no external services required.
+
+## Quick Start
+
+```bash
+# Install
+make setup
+
+# Run with demo data (no Airflow, no manifest needed)
+make dbt-demo
+
+# Run against your local dbt project
+make dbt-dev
+```
 
 ## Install
 
-For local development:
-
 ```bash
+# From source (recommended for development)
+git clone https://github.com/chaitanyakhoje/terminair
+cd terminair
 make setup
-```
 
-For runtime-only use:
-
-```bash
-python3.11 -m venv .venv
-.venv/bin/python -m pip install -e .
+# From git tag
+pip install git+https://github.com/chaitanyakhoje/terminair@v1.0
 ```
 
 ## Run
 
-The app needs a running Airflow instance with the REST API enabled.
-
-For a zero-setup demo, `make demo` will clone the public example Airflow repo into `.demo/airflow-dag-template`, start its Docker stack, and then launch Terminair against it.
-
 ```bash
-# Recommended: keep the password out of shell history
+# Demo mode — zero external services, uses built-in fixture data
+python3 -m terminair --demo
+
+# Against local dbt artifacts
+python3 -m terminair \
+  --manifest path/to/target/manifest.json \
+  --run-results path/to/target/run_results.json
+
+# With Airflow task status enrichment
+python3 -m terminair \
+  --manifest path/to/target/manifest.json \
+  --run-results path/to/target/run_results.json \
+  --dag my_dbt_dag \
+  --url http://localhost:8080 \
+  --user admin
+
+# Keep password out of shell history
 export TERMINAIR_PASSWORD=admin
 python3 -m terminair --url http://localhost:8080 --user admin
-```
-
-You can also use a named connection from config:
-
-```bash
-python3 -m terminair --ctx production
-```
-
-Helpful commands:
-
-```bash
-make help
-make setup
-make airflow-up
-make demo
-.venv/bin/python -m terminair --help
-.venv/bin/python -m terminair --version
-```
-
-## Authentication
-
-Basic auth is the most common setup:
-
-```bash
-# Option 1: environment variable
-export TERMINAIR_PASSWORD=admin
-python3 -m terminair --url http://localhost:8080 --user admin
-
-# Option 2: interactive prompt
-python3 -m terminair --url http://localhost:8080 --user admin
-# Password is hidden when prompted.
-
-# Option 3: CLI argument for local development only
-python3 -m terminair --url http://localhost:8080 --user admin --password admin
-```
-
-Token auth works through config files and environment substitution:
-
-```yaml
-# ~/.terminair/config.yaml
-connections:
-  production:
-    url: https://airflow.company.com
-    auth:
-      type: token
-      token: ${AIRFLOW_PROD_TOKEN}
-```
-
-```bash
-export AIRFLOW_PROD_TOKEN=your-bearer-token
-python3 -m terminair --ctx production
 ```
 
 ## Configuration
 
-Config is loaded from `~/.terminair/config.yaml`, or from `$XDG_CONFIG_HOME/terminair/config.yaml` when `XDG_CONFIG_HOME` is set.
-
-Supported settings in the current build:
+Config file: `~/.terminair/config.yaml`
 
 ```yaml
 connections:
   default:
-    url: http://localhost:8080
+    url: http://localhost:8080      # Airflow URL (optional)
     auth:
       type: basic
       username: admin
-      password: admin
+      password: ${TERMINAIR_PASSWORD}
+    dbt:
+      manifest_path: ~/projects/my_dbt_repo/target/manifest.json
+      run_results_path: ~/projects/my_dbt_repo/target/run_results.json
+      run_results_previous_path: ~/projects/my_dbt_repo/target/run_results_previous.json
+      dag_names:
+        - my_dbt_dag
+    snowflake:                      # optional — bytes_scanned enrichment
+      account: myaccount
+      user: myuser
+      password: ${SNOWFLAKE_PASSWORD}
+      warehouse: COMPUTE_WH
+      database: ANALYTICS
+      role: DEVELOPER
 
 settings:
   default_connection: default
-  watchlist:
-    - my_critical_dag
-    - daily_revenue_pipeline
-  show_sensitive: false
 ```
 
-Notes:
+Environment variable placeholders like `${TERMINAIR_PASSWORD}` are expanded on load.
 
-- `show_sensitive: true` or `TERMINAIR_SHOW_SENSITIVE=1` reveals XCom previews.
-- Environment-variable placeholders like `${AIRFLOW_PROD_TOKEN}` are expanded on load.
-- `--refresh` overrides the configured refresh interval.
-
-## Navigation
-
-From the DAGs screen:
+## Key Bindings
 
 | Key | Action |
 |-----|--------|
-| `1` | Errors view |
-| `2` | Pools |
-| `3` | Health |
-| `4` | SLA misses |
-| `5` | Resource timeline |
-| `0` | Watchlist |
-| `Enter` | Drill into the selected DAG |
+| `1` | ModelList screen |
+| `2` | Problems screen |
+| `3` | Lineage screen |
+| `Enter` | ModelDetail for selected model |
+| `1`–`5` | Switch tabs in ModelDetail |
+| `t` | Cycle tag filter (ModelList) |
+| `m` / `g` | Model mode / group mode (Lineage) |
+| `+` / `-` | Expand / collapse depth (Lineage) |
+| `/` | Open text filter |
 | `Esc` | Back / clear filter |
-| `/` | Filter the DAG list |
 | `r` | Refresh current screen |
-| `b` | Bookmark / unbookmark selected DAG |
-| `w` | Toggle wrapped columns in the DAG table |
-| `h` | Task history |
-| `d` | Dataset dependencies |
-| `x` | XCom viewer |
 | `:` | Command palette |
 | `q` / `Ctrl+C` | Quit |
 
-Command palette shortcuts currently wired in the app:
+## Regression Signals
 
-- `:errors`
-- `:pools`
-- `:health`
-- `:recent`
+Terminair detects 6 regression signal types by comparing current and previous run results:
 
-## Airflow Setup
+| Signal | Severity | Trigger |
+|--------|----------|---------|
+| `row_drop` | critical | rows written fell >30% |
+| `row_spike` | warning | rows written rose >50% |
+| `grain_removed` | critical | unique_key column removed |
+| `grain_added` | warning | unique_key column added |
+| `upstream_schema_change` | warning | upstream model changed grain or materialization |
+| `new_model_no_baseline` | info | model has no previous run to compare |
 
-Terminair requires the Airflow REST API to be enabled. For Airflow 2.x, make sure `airflow.cfg` includes:
+Grain and upstream signals require `run_results_previous_path` to be configured.
 
-```ini
-[api]
-auth_backends = airflow.api.auth.backend.basic_auth
+## Docker
+
+```bash
+docker build -t terminair .
+
+# Demo mode (default when no AIRFLOW_URL set)
+docker run --rm terminair
+
+# With Airflow URL
+docker run --rm \
+  -e AIRFLOW_URL=http://airflow.internal:8080 \
+  -e TERMINAIR_USER=admin \
+  -e TERMINAIR_PASSWORD=admin \
+  -v $(pwd)/target:/app/target \
+  terminair
 ```
 
-The demo workflow clones a local cache of the example Airflow stack under `.demo/airflow-dag-template`. Its Docker Compose setup creates an `admin/admin` account, a few pools, and sample DAGs that exercise the UI.
+## Development
 
-For managed Airflow environments, use the token auth flow above and point Terminair at the right connection.
+```bash
+make setup        # install in editable mode
+make dbt-demo     # run against fixture data
+make dbt-dev      # run against local target/
+make test         # run test suite
+```
+
+```bash
+uv run pytest terminair/tests/ -v   # 117 tests
+```
 
 ## Security
 
-- Read-only API client: no trigger, clear, patch, or delete methods are implemented.
-- Prefer environment variables or interactive prompts for secrets.
-- Debug logging is disabled by default. Set `TERMINAIR_DEBUG=1` to enable it.
-
-## Testing
-
-```bash
-python3 -m pytest terminair/tests/ -v
-```
+- Strictly read-only — `AirflowBridge` and `SnowflakeClient` have zero write methods, enforced by `test_read_only.py`
+- No production data — local manifest and run_results only; no dbt Cloud API
+- Use environment variables or interactive prompts for secrets
 
 ## License
 
