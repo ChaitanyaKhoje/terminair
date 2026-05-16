@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import copy
+
 from terminair.dbt.models import ModelState
 
 
@@ -279,7 +281,7 @@ class MockDataProvider:
         All other fields mirror current model values so only grain signals fire.
         Declared async def (no awaits) for interface symmetry with get_models().
         """
-        current = list(self._models)
+        current = [copy.copy(m) for m in self._models]
         previous: list[ModelState] = []
         grain_overrides: dict[str, list[str]] = {
             "fct_revenue_daily": ["revenue_date", "region"],
