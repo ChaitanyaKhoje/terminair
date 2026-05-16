@@ -122,7 +122,7 @@ Plans:
 **Goal**: All three previously-unreachable regression signal types (grain_added, grain_removed, upstream_schema_change) are visible in the TUI when run_results_previous.json is present; the ModelListScreen clock shows a non-empty time on initial launch without navigating away
 **Requirements**: DAT-06, SCR-01
 **Depends on:** Phase 5
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
 **Wave 1**
