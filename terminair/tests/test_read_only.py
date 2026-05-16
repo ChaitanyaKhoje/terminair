@@ -1,10 +1,14 @@
-"""Tests to enforce read-only contract.
+"""Tests to enforce read-only contract for AirflowBridge."""
 
-Phase 5 will extend this file to assert AirflowBridge has no write methods.
-"""
+from __future__ import annotations
+
+import inspect
 
 
-def test_placeholder_read_only_contract():
-    """Placeholder: read-only contract enforcement to be extended in Phase 5."""
-    # AirflowBridge (Phase 2) will be tested here once it exists.
-    pass
+def test_airflow_bridge_has_no_write_methods():
+    """AirflowBridge must expose zero write methods (post, put, delete, patch)."""
+    from terminair.dbt.airflow_bridge import AirflowBridge
+
+    members = dict(inspect.getmembers(AirflowBridge, predicate=inspect.isfunction))
+    write_methods = [m for m in members if m in ("post", "put", "delete", "patch")]
+    assert not write_methods, f"Found write methods on AirflowBridge: {write_methods}"
