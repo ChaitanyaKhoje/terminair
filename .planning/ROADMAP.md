@@ -126,7 +126,7 @@ Plans:
 
 Plans:
 **Wave 1**
-- [ ] 05.1-01-PLAN.md — Add get_previous_models() to StateAggregator and MockDataProvider; wire previous snapshot through three screens; fix on_mount clock
+- [x] 05.1-01-PLAN.md — Add get_previous_models() to StateAggregator and MockDataProvider; wire previous snapshot through three screens; fix on_mount clock
 
 ## Progress
 
@@ -140,4 +140,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 3. Config + CLI Extension | 0/1 | Not started | - |
 | 4. Screens | 2/2 | Complete   | 2026-05-15 |
 | 5. Tests + Build | 1/1 | Complete   | 2026-05-16 |
-| 5.1. Screen regression signal depth | 0/1 | Not started | - |
+| 5.1. Screen regression signal depth | 1/1 | Complete   | 2026-05-16 |
