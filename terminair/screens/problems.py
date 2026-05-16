@@ -59,7 +59,7 @@ class ProblemsScreen(DbtScreen):
         self._models = list(models)
         self._previous_models = await provider.get_previous_models()
         self._sync_selected_model()
-        self._render()
+        self._refresh_display()
 
     def compose(self):
         with Vertical():
@@ -71,10 +71,10 @@ class ProblemsScreen(DbtScreen):
             yield Static("regression signals", id="signal-heading")
             yield DataTable(id="signal-table")
 
-    async def on_mount(self) -> None:
-        await self._load_models()
+    def on_mount(self) -> None:
+        self._queue_reload()
 
-    def _render(self) -> None:
+    def _refresh_display(self) -> None:
         failures = [m for m in self._models if m.status == "failed"]
         failures = self._matching_models(failures)
         self._signals = RegressionAnalyzer(self._models).analyze(previous=self._previous_models or None)

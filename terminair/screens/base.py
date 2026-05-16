@@ -47,7 +47,7 @@ class DbtScreen(Screen):
         self._models = list(models)
         self._previous_models = await provider.get_previous_models()
         self._sync_selected_model()
-        self._render()
+        self._refresh_display()
 
     def _queue_reload(self) -> None:
         self.run_worker(self._load_models(), exclusive=True)
@@ -73,7 +73,7 @@ class DbtScreen(Screen):
 
     def _on_filter_change(self, value: str) -> None:
         self._filter_query = value.strip()
-        self._render()
+        self._refresh_display()
 
     def _set_selected_model(self, node_id: str) -> None:
         self._selected_model_id = node_id
@@ -117,5 +117,5 @@ class DbtScreen(Screen):
     def _find_model(self, node_id: str) -> ModelState | None:
         return next((model for model in self._models if model.node_id == node_id), None)
 
-    def _render(self) -> None:
+    def _refresh_display(self) -> None:
         raise NotImplementedError

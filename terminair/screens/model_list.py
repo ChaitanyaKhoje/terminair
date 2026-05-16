@@ -87,7 +87,7 @@ class ModelListScreen(DbtScreen):
         self._models = list(models)
         self._previous_models = await provider.get_previous_models()
         self._sync_selected_model()
-        self._render()
+        self._refresh_display()
 
     def compose(self):
         with Vertical():
@@ -99,8 +99,7 @@ class ModelListScreen(DbtScreen):
             yield Static("", id="model-list-status")
 
     async def on_mount(self) -> None:
-        self._update_header()
-        await self._load_models()
+        self._queue_reload()
 
     def on_screen_resume(self) -> None:
         self._clock_timer = self.set_interval(1.0, self._update_header)
@@ -116,7 +115,7 @@ class ModelListScreen(DbtScreen):
             models = [m for m in models if self._selected_tag in m.all_tags or m.tag == self._selected_tag]
         return self._matching_models(models)
 
-    def _render(self) -> None:
+    def _refresh_display(self) -> None:
         table = self.query_one("#model-table", DataTable)
         table.clear(columns=True)
         table.add_column("status", key="status")
@@ -195,7 +194,7 @@ class ModelListScreen(DbtScreen):
             return
         current = tags.index(self._selected_tag) if self._selected_tag in tags else 0
         self._selected_tag = tags[(current + 1) % len(tags)]
-        self._render()
+        self._refresh_display()
 
     def action_open_selected_detail(self) -> None:
         if self._selected_model_id:

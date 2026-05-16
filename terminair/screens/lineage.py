@@ -62,10 +62,10 @@ class LineageScreen(DbtScreen):
             yield FilterInput()
             yield DataTable(id="lineage-table")
 
-    async def on_mount(self) -> None:
-        await self._load_models()
+    def on_mount(self) -> None:
+        self._queue_reload()
 
-    def _render(self) -> None:
+    def _refresh_display(self) -> None:
         self._model_map = {model.node_id: model for model in self._models}
         rows = self._render_model_tree() if self._mode == "model" else self._render_group_list()
 
@@ -158,19 +158,19 @@ class LineageScreen(DbtScreen):
 
     def action_model_mode(self) -> None:
         self._mode = "model"
-        self._render()
+        self._refresh_display()
 
     def action_group_mode(self) -> None:
         self._mode = "group"
-        self._render()
+        self._refresh_display()
 
     def action_deeper(self) -> None:
         self._depth += 1
-        self._render()
+        self._refresh_display()
 
     def action_shallower(self) -> None:
         self._depth = max(1, self._depth - 1)
-        self._render()
+        self._refresh_display()
 
     def action_open_selected_detail(self) -> None:
         if self._selected_model_id:

@@ -73,7 +73,7 @@ class ModelDetailScreen(DbtScreen):
         self._models = list(models)
         self._previous_models = await provider.get_previous_models()
         self._sync_selected_model()
-        self._render()
+        self._refresh_display()
 
     def compose(self):
         with Vertical():
@@ -96,10 +96,10 @@ class ModelDetailScreen(DbtScreen):
                     id="tab-regression",
                 )
 
-    async def on_mount(self) -> None:
-        await self._load_models()
+    def on_mount(self) -> None:
+        self._queue_reload()
 
-    def _render(self) -> None:
+    def _refresh_display(self) -> None:
         model = self._current_model()
         if model is None:
             return
