@@ -129,3 +129,13 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 3. Config + CLI Extension | 0/1 | Not started | - |
 | 4. Screens | 2/2 | Complete   | 2026-05-15 |
 | 5. Tests + Build | 1/1 | Complete   | 2026-05-16 |
+
+### Phase 05.1: Screen regression signal depth — thread previous-snapshot to screens, fix clock on initial mount (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 5
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 05.1 to break down)

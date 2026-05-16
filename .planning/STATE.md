@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: milestone_complete
+status: completed
 stopped_at: Completed 01-01-PLAN.md — 26 Airflow files deleted from terminair/
-last_updated: "2026-05-16T00:30:48.600Z"
+last_updated: "2026-05-16T17:03:23.080Z"
 last_activity: 2026-05-16
 progress:
-  total_phases: 5
-  completed_phases: 6
+  total_phases: 6
+  completed_phases: 5
   total_plans: 11
   completed_plans: 11
-  percent: 120
+  percent: 100
 ---
 
 # Project State
@@ -63,6 +63,10 @@ Progress: [██████████] 100%
 | Phase 05-tests-+-build P01 | 8min | 3 tasks | 5 files |
 
 ## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 05.1 inserted after Phase 5: Thread previous-snapshot to screens (TD-01) + fix clock on initial mount (TD-02) — audit found grain/upstream signals unreachable in TUI (URGENT)
 
 ### Decisions
 
