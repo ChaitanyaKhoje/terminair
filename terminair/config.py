@@ -1,10 +1,11 @@
+# ruff: noqa: UP045, UP007
 """Configuration loading, validation, and env var expansion."""
 
 from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Optional, Union
 
 import yaml
 from pydantic import BaseModel, Field
@@ -21,12 +22,31 @@ class ConnectionAuthToken(BaseModel):
     token: str
 
 
+class DbtConfig(BaseModel):
+    manifest_path: Optional[Path] = None
+    run_results_path: Optional[Path] = None
+    run_results_previous_path: Optional[Path] = None
+    manifest_previous_path: Optional[Path] = None
+    dag_names: list[str] = Field(default_factory=list)
+
+
+class SnowflakeConfig(BaseModel):
+    account: str
+    user: str
+    password: str
+    warehouse: str
+    database: str
+    role: str
+
+
 class Connection(BaseModel):
     url: str
     auth: Annotated[
-        ConnectionAuthBasic | ConnectionAuthToken,
+        Union[ConnectionAuthBasic, ConnectionAuthToken],
         Field(discriminator="type"),
     ]
+    dbt: Optional[DbtConfig] = None
+    snowflake: Optional[SnowflakeConfig] = None
 
 
 class Settings(BaseModel):
@@ -43,12 +63,12 @@ class Settings(BaseModel):
 
 
 class Config(BaseModel):
-    connections: dict[str, Connection] = {}
+    connections: dict[str, Connection] = Field(default_factory=dict)
     settings: Settings = Settings()
-    keybindings: dict[str, str] = {}
+    keybindings: dict[str, str] = Field(default_factory=dict)
 
     @classmethod
-    def load(cls, path: Path | None = None) -> Config:
+    def load(cls, path: Optional[Path] = None) -> Config:
         if path is None:
             xdg_config = os.environ.get("XDG_CONFIG_HOME")
             if xdg_config:
@@ -75,6 +95,19 @@ class Config(BaseModel):
         for key, value in data.items():
             if isinstance(value, dict):
                 result[key] = cls._expand_env_vars(value)
+            elif isinstance(value, list):
+                expanded_list = []
+                for item in value:
+                    if isinstance(item, dict):
+                        expanded_list.append(cls._expand_env_vars(item))
+                    elif isinstance(item, list):
+                        expanded_list.append(cls._expand_env_vars({"_": item})["_"])
+                    elif isinstance(item, str) and item.startswith("${") and item.endswith("}"):
+                        env_var = item[2:-1]
+                        expanded_list.append(os.environ.get(env_var, item))
+                    else:
+                        expanded_list.append(item)
+                result[key] = expanded_list
             elif isinstance(value, str) and value.startswith("${") and value.endswith("}"):
                 env_var = value[2:-1]
                 result[key] = os.environ.get(env_var, value)
@@ -84,44 +117,91 @@ class Config(BaseModel):
 
 
 class CLIConfig(BaseModel):
-    url: str | None = None
-    user: str | None = None
-    password: str | None = None
-    ctx: str | None = None
-    config_path: Path | None = None
-    dag: str | None = None
-    refresh: int | None = None
+    url: Optional[str] = None
+    user: Optional[str] = None
+    password: Optional[str] = None
+    ctx: Optional[str] = None
+    config_path: Optional[Path] = None
+    manifest_path: Optional[Path] = None
+    run_results_path: Optional[Path] = None
+    dag_names: list[str] = Field(default_factory=list)
+    demo: bool = False
+    refresh: Optional[int] = None
     version: bool = False
     help: bool = Field(default=False, alias="help")
 
 
+def _copy_connection(connection: Connection) -> Connection:
+    return connection.model_copy(deep=True)
+
+
+def _merge_dbt_config(
+    base: Optional[DbtConfig],
+    cli_config: CLIConfig,
+) -> Optional[DbtConfig]:
+    merged = base.model_copy(deep=True) if base is not None else DbtConfig()
+
+    if cli_config.manifest_path is not None:
+        merged.manifest_path = cli_config.manifest_path
+    if cli_config.run_results_path is not None:
+        merged.run_results_path = cli_config.run_results_path
+    if cli_config.dag_names:
+        merged.dag_names.extend(cli_config.dag_names)
+
+    return merged
+
+
 def merge_configs(file_config: Config, cli_config: CLIConfig) -> Config:
-    connections = dict(file_config.connections)
+    connections = {name: _copy_connection(conn) for name, conn in file_config.connections.items()}
+    active_conn = cli_config.ctx or file_config.settings.default_connection
+
+    if cli_config.demo:
+        settings_dict = file_config.settings.model_dump()
+        if cli_config.refresh is not None:
+            settings_dict["refresh_interval"] = cli_config.refresh
+        settings_dict["default_connection"] = active_conn
+        return Config(
+            connections=connections,
+            settings=Settings(**settings_dict),
+            keybindings=file_config.keybindings,
+        )
 
     if cli_config.url:
         conn_name = cli_config.ctx or "default"
+        base_conn = connections.get(conn_name)
         if cli_config.user and cli_config.password:
-            connections[conn_name] = Connection(
-                url=cli_config.url,
-                auth=ConnectionAuthBasic(
+            merged_conn = base_conn.model_copy(deep=True) if base_conn is not None else None
+            if merged_conn is None:
+                merged_conn = Connection(
+                    url=cli_config.url,
+                    auth=ConnectionAuthBasic(
+                        type="basic",
+                        username=cli_config.user,
+                        password=cli_config.password,
+                    ),
+                )
+            else:
+                merged_conn.url = cli_config.url
+                merged_conn.auth = ConnectionAuthBasic(
                     type="basic",
                     username=cli_config.user,
                     password=cli_config.password,
-                ),
-            )
+                )
+            connections[conn_name] = merged_conn
         else:
             raise ValueError(
                 "URL provided without credentials. Use --user/--password, "
                 "set TERMINAIR_PASSWORD env var, or configure a connection in config.yaml."
             )
 
-    active_conn = cli_config.ctx or file_config.settings.default_connection
-
     if active_conn not in connections:
         raise ValueError(f"Connection '{active_conn}' not found")
 
+    active_connection = connections[active_conn]
+    active_connection.dbt = _merge_dbt_config(active_connection.dbt, cli_config)
+
     settings_dict = file_config.settings.model_dump()
-    if cli_config.refresh:
+    if cli_config.refresh is not None:
         settings_dict["refresh_interval"] = cli_config.refresh
     settings_dict["default_connection"] = active_conn
 

@@ -15,7 +15,22 @@ from terminair.config import CLIConfig, Config, merge_configs
 @click.option("--password", help="Password for basic auth (prefer TERMINAIR_PASSWORD env var)")
 @click.option("--ctx", help="Connection context name")
 @click.option("--config", type=click.Path(path_type=Path), help="Config file path")
-@click.option("--dag", help="Jump to specific DAG on startup")
+@click.option(
+    "--manifest",
+    type=click.Path(path_type=Path),
+    help="Override the dbt manifest path",
+)
+@click.option(
+    "--run-results",
+    type=click.Path(path_type=Path),
+    help="Override the dbt run_results path",
+)
+@click.option(
+    "--dag",
+    multiple=True,
+    help="Append a DAG name to the dbt configuration (repeatable)",
+)
+@click.option("--demo", is_flag=True, help="Run against demo data with no external services")
 @click.option(
     "--refresh",
     type=int,
@@ -28,7 +43,10 @@ def main(
     password,
     ctx,
     config,
+    manifest,
+    run_results,
     dag,
+    demo,
     refresh,
     version,
 ):
@@ -49,7 +67,10 @@ def main(
         password=password,
         ctx=ctx,
         config_path=config,
-        dag=dag,
+        manifest_path=manifest,
+        run_results_path=run_results,
+        dag_names=list(dag),
+        demo=demo,
         refresh=refresh,
     )
 
@@ -61,7 +82,7 @@ def main(
         click.echo(f"Error: {e}", err=True)
         return
 
-    app = TerminairApp(full_config)
+    app = TerminairApp(full_config, demo_mode=cli_config.demo)
     app.run()
 
 

@@ -1,12 +1,13 @@
+# ruff: noqa: UP042
 """Pydantic models mapping to Airflow REST API responses."""
 
 from datetime import datetime
-from enum import StrEnum
+from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class DagRunState(StrEnum):
+class DagRunState(str, Enum):
     SUCCESS = "success"
     FAILED = "failed"
     RUNNING = "running"
@@ -16,7 +17,7 @@ class DagRunState(StrEnum):
         return self.value
 
 
-class TaskState(StrEnum):
+class TaskState(str, Enum):
     SUCCESS = "success"
     FAILED = "failed"
     RUNNING = "running"

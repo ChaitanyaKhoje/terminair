@@ -1,12 +1,13 @@
+# ruff: noqa: UP042
 """Data classes for the dbt model intelligence data layer."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import StrEnum
+from enum import Enum
 
 
-class Severity(StrEnum):
+class Severity(str, Enum):
     INFO = "info"
     WARNING = "warning"
     CRITICAL = "critical"

@@ -1,13 +1,14 @@
+# ruff: noqa: UP042
 """Flash message widget — k9s-inspired status feedback."""
 
 from dataclasses import dataclass, field
-from enum import StrEnum
+from enum import Enum
 from time import monotonic
 
 from textual.widgets import Static
 
 
-class FlashLevel(StrEnum):
+class FlashLevel(str, Enum):
     INFO = "info"
     WARN = "warn"
     ERROR = "error"

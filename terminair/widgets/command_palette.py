@@ -30,7 +30,8 @@ class CommandPalette(Widget):
 
     def compose(self) -> ComposeResult:
         yield Input(
-            placeholder=":dag <name> :pools :health :ctx <name> :filter :export", id="cmd-input"
+            placeholder=":models :problems :lineage :detail :filter :export",
+            id="cmd-input",
         )
 
     def show(self):
@@ -55,6 +56,10 @@ class CommandExecutor:
         "health": "switch_health",
         "errors": "switch_errors",
         "recent": "switch_recent",
+        "models": "switch_model_list",
+        "problems": "switch_problems",
+        "lineage": "switch_lineage",
+        "detail": "switch_detail",
         "ctx": "switch_connection",
         "filter": "apply_filter",
         "export": "export_data",
