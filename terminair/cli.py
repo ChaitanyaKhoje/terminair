@@ -52,7 +52,12 @@ def main(
 ):
     """Terminair - A k9s-style TUI for Apache Airflow."""
     if version:
-        click.echo("terminair version 0.1.0")
+        try:
+            from importlib.metadata import version as pkg_version
+            ver = pkg_version("terminair")
+        except Exception:
+            ver = "1.0.0"
+        click.echo(f"terminair version {ver}")
         return
 
     # Resolve password: CLI arg > env var > interactive prompt

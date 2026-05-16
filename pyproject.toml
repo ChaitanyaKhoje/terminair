@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "terminair"
-version = "0.1.0"
+version = "1.0.0"
 description = "A read-only dbt model intelligence TUI for the terminal"
 readme = "README.md"
 license = {text = "MIT"}
@@ -36,6 +36,9 @@ terminair = "terminair.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
+
+[tool.setuptools.package-data]
+terminair = ["dbt/fixtures/*.json"]
 
 [tool.ruff]
 line-length = 100
