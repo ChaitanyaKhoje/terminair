@@ -368,9 +368,11 @@ class TestRegressionAnalyzer:
             "upstream node should not emit upstream_schema_change against itself"
         )
 
-        # Total signal count: 1 upstream_schema_change (fct_orders) +
-        # 1 new_model_no_baseline (stg_orders, rows_previous=None + status=success)
-        assert len(signals) == 2, (
-            f"Expected exactly 2 signals total, got {len(signals)}: "
+        # Total signal count:
+        #   1 upstream_schema_change (fct_orders — the consumer)
+        #   1 new_model_no_baseline (fct_orders — rows_previous=None + status=success)
+        #   1 new_model_no_baseline (stg_orders — rows_previous=None + status=success)
+        assert len(signals) == 3, (
+            f"Expected exactly 3 signals total, got {len(signals)}: "
             f"{[(s.signal_type, s.node_id) for s in signals]}"
         )
