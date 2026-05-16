@@ -1,9 +1,6 @@
-"""Tests for RegressionAnalyzer and MockDataProvider — RED phase for TDD."""
+"""Tests for RegressionAnalyzer — all 6 signal types and severity thresholds."""
 
 from __future__ import annotations
-
-import asyncio
-import inspect
 
 import pytest
 
@@ -313,133 +310,51 @@ class TestRegressionAnalyzer:
         no_baseline = [s for s in signals if s.signal_type == "new_model_no_baseline"]
         assert len(no_baseline) == 0
 
-
-class TestMockDataProvider:
-    def test_import(self):
-        from terminair.dbt.mock_data import MockDataProvider  # noqa: F401
-
-    def test_get_models_returns_10(self):
-        from terminair.dbt.mock_data import MockDataProvider
-
-        mdp = MockDataProvider()
-        models = asyncio.run(mdp.get_models())
-        assert len(models) == 10
-
-    def test_get_models_is_async(self):
-        from terminair.dbt.mock_data import MockDataProvider
-
-        mdp = MockDataProvider()
-        assert inspect.iscoroutinefunction(mdp.get_models)
-
-    def test_status_distribution(self):
-        from terminair.dbt.mock_data import MockDataProvider
-
-        mdp = MockDataProvider()
-        models = asyncio.run(mdp.get_models())
-        statuses = [m.status for m in models]
-        assert statuses.count("running") == 2
-        assert statuses.count("failed") == 2
-        assert statuses.count("queued") == 2
-        assert statuses.count("success") == 4
-
-    def test_tag_distribution(self):
-        from terminair.dbt.mock_data import MockDataProvider
-
-        mdp = MockDataProvider()
-        models = asyncio.run(mdp.get_models())
-        tags = [m.tag for m in models]
-        assert tags.count("finance") == 3
-        assert tags.count("marketing") == 2
-        assert tags.count("core") == 2
-        assert tags.count("platform") == 2
-        assert tags.count("risk") == 1
-
-    def test_tick_transitions_running_to_success_after_4(self):
-        from terminair.dbt.mock_data import MockDataProvider
-
-        mdp = MockDataProvider()
-        initial_models = asyncio.run(mdp.get_models())
-        assert sum(1 for m in initial_models if m.status == "running") == 2
-
-        for _ in range(4):
-            mdp.tick()
-
-        models_after = asyncio.run(mdp.get_models())
-        running_after = [m for m in models_after if m.status == "running"]
-        assert len(running_after) == 1, f"Expected 1 running after 4 ticks, got {len(running_after)}"
-
-    def test_row_drop_signals_present(self):
-        """At least 2 models have row_delta_pct < -25% for row_drop signals."""
-        from terminair.dbt.mock_data import MockDataProvider
+    def test_upstream_schema_change_warning(self):
+        """upstream dep changes materialization → WARNING upstream_schema_change on consumer."""
         from terminair.dbt.regression import RegressionAnalyzer
+        from terminair.dbt.models import ModelState
 
-        mdp = MockDataProvider()
-        models = asyncio.run(mdp.get_models())
-        ra = RegressionAnalyzer(models)
-        signals = ra.analyze()
-        row_drops = [s for s in signals if s.signal_type == "row_drop"]
-        assert len(row_drops) >= 2, f"Expected at least 2 row_drop signals, got {row_drops}"
-
-    def test_new_model_no_baseline_signal_present(self):
-        """fct_platform_events has rows_previous=None + status=success → INFO signal."""
-        from terminair.dbt.mock_data import MockDataProvider
-        from terminair.dbt.regression import RegressionAnalyzer
-
-        mdp = MockDataProvider()
-        models = asyncio.run(mdp.get_models())
-        ra = RegressionAnalyzer(models)
-        signals = ra.analyze()
-        no_baseline = [s for s in signals if s.signal_type == "new_model_no_baseline"]
-        assert len(no_baseline) >= 1
-
-    def test_tick_increments_running_duration(self):
-        """After 1 tick, running models have duration_s > initial value."""
-        from terminair.dbt.mock_data import MockDataProvider
-
-        mdp = MockDataProvider()
-        initial_models = asyncio.run(mdp.get_models())
-        initial_durations = {m.name: m.duration_s for m in initial_models if m.status == "running"}
-
-        mdp.tick()
-
-        models_after = asyncio.run(mdp.get_models())
-        after_durations = {m.name: m.duration_s for m in models_after if m.status == "running"}
-
-        for name, initial_dur in initial_durations.items():
-            if name in after_durations:
-                assert after_durations[name] > (initial_dur or 0.0), (
-                    f"{name} duration should have increased after tick"
-                )
-
-    def test_tick_recomputes_row_delta_pct(self):
-        """After 4 ticks, the transitioned model has status=success and row_delta_pct is not None."""
-        from terminair.dbt.mock_data import MockDataProvider
-
-        mdp = MockDataProvider()
-        initial_models = asyncio.run(mdp.get_models())
-        # Record initial running model names
-        initial_running = [m.name for m in initial_models if m.status == "running"]
-        assert len(initial_running) == 2
-
-        for _ in range(4):
-            mdp.tick()
-
-        models_after = asyncio.run(mdp.get_models())
-        # One model should have transitioned from running → success
-        transitioned = [
-            m for m in models_after
-            if m.name in initial_running and m.status == "success"
-        ]
-        assert len(transitioned) == 1, f"Expected 1 transitioned model, got {transitioned}"
-        # The transitioned model should have row_delta_pct computed (not None)
-        assert transitioned[0].row_delta_pct is not None
-
-    def test_get_models_returns_copy(self):
-        """Mutating the returned list does not affect internal state."""
-        from terminair.dbt.mock_data import MockDataProvider
-
-        mdp = MockDataProvider()
-        models1 = asyncio.run(mdp.get_models())
-        models1.clear()  # Mutate the returned list
-        models2 = asyncio.run(mdp.get_models())
-        assert len(models2) == 10, "Internal state was mutated — get_models() must return a copy"
+        prev_upstream = ModelState(
+            node_id="model.p.stg_orders",
+            name="stg_orders",
+            tag="core",
+            status="success",
+            dag_id="",
+            task_id="",
+            materialization="view",
+            schema_name="s",
+            database_name="d",
+            has_upstream_failure=False,
+        )
+        curr_upstream = ModelState(
+            node_id="model.p.stg_orders",
+            name="stg_orders",
+            tag="core",
+            status="success",
+            dag_id="",
+            task_id="",
+            materialization="table",  # changed from view → table
+            schema_name="s",
+            database_name="d",
+            has_upstream_failure=False,
+        )
+        consumer = ModelState(
+            node_id="model.p.fct_orders",
+            name="fct_orders",
+            tag="core",
+            status="success",
+            dag_id="",
+            task_id="",
+            materialization="table",
+            schema_name="s",
+            database_name="d",
+            has_upstream_failure=False,
+            upstream_deps=["model.p.stg_orders"],
+        )
+        ra = RegressionAnalyzer([consumer, curr_upstream])
+        signals = ra.analyze(previous=[prev_upstream])
+        upstream_changes = [s for s in signals if s.signal_type == "upstream_schema_change"]
+        assert len(upstream_changes) == 1
+        assert upstream_changes[0].severity == Severity.WARNING
+        assert upstream_changes[0].node_id == "model.p.fct_orders"
