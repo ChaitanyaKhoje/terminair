@@ -78,6 +78,15 @@ class ModelListScreen(DbtScreen):
         self._selected_tag = "all"
         self._tags: list[str] = []
         self._clock_timer: Timer | None = None
+        self._previous_models: list[ModelState] = []
+
+    async def _load_models(self) -> None:
+        provider = self.app_typed.get_data_provider()
+        models = await provider.get_models()
+        self._models = list(models)
+        self._previous_models = await provider.get_previous_models()
+        self._sync_selected_model()
+        self._render()
 
     def compose(self):
         with Vertical():
@@ -89,6 +98,7 @@ class ModelListScreen(DbtScreen):
             yield Static("", id="model-list-status")
 
     async def on_mount(self) -> None:
+        self._update_header()
         await self._load_models()
 
     def on_screen_resume(self) -> None:
@@ -168,7 +178,7 @@ class ModelListScreen(DbtScreen):
         )
 
     def _update_statusbar(self) -> None:
-        signals = RegressionAnalyzer(self._models).analyze()
+        signals = RegressionAnalyzer(self._models).analyze(previous=self._previous_models or None)
         # NOTE: grain/upstream signals (grain_added, grain_removed,
         # upstream_schema_change) require a previous snapshot via the
         # `previous` argument. Without run_results_previous_path configured,

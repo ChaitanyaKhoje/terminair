@@ -63,6 +63,18 @@ class ModelDetailScreen(DbtScreen):
         Binding("5", "switch_tab('tab-regression')", "Regression", show=False),
     ]
 
+    def __init__(self) -> None:
+        super().__init__()
+        self._previous_models: list[ModelState] = []
+
+    async def _load_models(self) -> None:
+        provider = self.app_typed.get_data_provider()
+        models = await provider.get_models()
+        self._models = list(models)
+        self._previous_models = await provider.get_previous_models()
+        self._sync_selected_model()
+        self._render()
+
     def compose(self):
         with Vertical():
             yield Static("dbt model detail", id="detail-header")
@@ -148,7 +160,9 @@ class ModelDetailScreen(DbtScreen):
         return model.compiled_sql or "-- compiled SQL unavailable --"
 
     def _render_regression(self, model: ModelState) -> str:
-        signals = RegressionAnalyzer([model]).analyze()
+        prev_model = next((m for m in self._previous_models if m.node_id == model.node_id), None)
+        previous = [prev_model] if prev_model is not None else None
+        signals = RegressionAnalyzer([model]).analyze(previous=previous)
         if not signals:
             return "No regression signals for this model."
         lines = []
