@@ -2,7 +2,9 @@
 
 ## What This Is
 
-Terminair is a read-only local developer TUI for answering operational and structural questions about dbt models. It runs locally, correlating three things the developer already has: a cloned dbt repo (manifest.json + run_results.json), a cloned Airflow app repo (DAG definitions), and a live local Airflow stack (task status + pod names from Kubernetes). Airflow and Snowflake are data sources only — the manifest.json is the primary source of truth.
+Terminair is a read-only local developer TUI for answering operational and structural questions about dbt models. It correlates three things the developer already has: a cloned dbt repo (manifest.json + run_results.json), a cloned Airflow app repo (DAG definitions), and an optional live Airflow stack. The manifest.json is the primary source of truth; Airflow and Snowflake are narrow enrichment sources.
+
+**v1.0 shipped:** 4 screens (ModelList, Problems, Lineage, ModelDetail), full dbt data layer with 6 regression signal types, demo mode requiring zero external services, 117 tests.
 
 ## Core Value
 
@@ -10,28 +12,32 @@ A developer working on dbt models can instantly see what is happening with any m
 
 ## Requirements
 
-### Validated
+### Validated (v1.0)
 
 - ✓ Textual-based TUI framework — existing
 - ✓ k9s interaction model (key hints visible, filter bar, push/pop screen stack) — existing
-- ✓ FlashBar error widget (auto-clears after 8s) — existing
+- ✓ FlashBar error/warn widget (auto-clears after 8s) — existing
 - ✓ CommandPalette — existing
 - ✓ Config loading with YAML + env var expansion — existing
-- ✓ Read-only enforcement (test suite verifies no write methods) — existing
+- ✓ Read-only enforcement (test suite verifies no write methods) — v1.0
+- ✓ dbt data layer (ManifestLoader, ArtifactReader, AirflowBridge, StateAggregator, RegressionAnalyzer, MockDataProvider) — v1.0
+- ✓ Fixture files (manifest.json, run_results.json, run_results_previous.json, manifest_previous.json, query_history.json) — v1.0
+- ✓ ModelListScreen — live operational dashboard across all dbt models — v1.0
+- ✓ ProblemsScreen — failures (self-caused vs upstream-caused) + regression signals — v1.0
+- ✓ LineageScreen — ASCII tree (model mode + tag/group mode, 4-hop depth) — v1.0
+- ✓ ModelDetailScreen — 5-tab deep-dive (Status, Structure, Variables+Refs, SQL, Regression) — v1.0
+- ✓ Config schema: DbtConfig + SnowflakeConfig Pydantic models — v1.0
+- ✓ CLI flags: --manifest, --run-results, --dag (repeatable), --demo — v1.0
+- ✓ Makefile targets: dbt-demo, dbt-dev — v1.0
+- ✓ Test suite: test_manifest.py, test_regression.py, test_aggregator.py, test_mock_data.py — v1.0
+- ✓ Removed all deprecated Airflow screens — v1.0
+- ✓ grain_added, grain_removed, upstream_schema_change signals visible in TUI (previous-snapshot threading) — v1.0 (Phase 5.1)
 
-### Active
+### Active (v1.1+)
 
-- [ ] dbt data layer (ManifestLoader, ArtifactReader, AirflowBridge, StateAggregator, RegressionAnalyzer, MockDataProvider)
-- [ ] Fixture files (manifest.json, run_results.json, run_results_previous.json, manifest_previous.json, query_history.json)
-- [ ] ModelListScreen — live operational dashboard across all dbt models
-- [ ] ProblemsScreen — failures (self-caused vs upstream-caused) + regression signals
-- [ ] LineageScreen — ASCII tree (model mode + tag/group mode)
-- [ ] ModelDetailScreen — 5-tab deep-dive (Status, Structure, Variables+Refs, SQL, Regression)
-- [ ] Config schema extended with DbtConfig + SnowflakeConfig Pydantic models
-- [ ] CLI flags: --manifest, --run-results, --dag (repeatable), --demo
-- [ ] Makefile targets: dbt-demo, dbt-dev
-- [ ] Test suite: test_manifest.py, test_regression.py, test_aggregator.py, test_mock_data.py
-- [ ] Remove all deprecated Airflow screens (pools, health, SLA misses, resource timeline, XCom, DAG list, etc.)
+- [ ] Cold-start UX: hint toward --demo when no config file present (TD-03)
+- [ ] Human UAT sign-off on live TUI smoke (deferred from autonomous execution)
+- [ ] Dockerfile tested end-to-end with $AIRFLOW_URL env var in a real container
 
 ### Out of Scope
 
@@ -48,20 +54,16 @@ A developer working on dbt models can instantly see what is happening with any m
 
 ## Context
 
-This is a brownfield project — an existing Textual TUI for Apache Airflow is being repositioned as a dbt model intelligence tool. The Airflow TUI layer is being removed entirely; what remains is the Textual framework, theme system, command palette, filter widget, flash widget, and config loading pattern.
+**Shipped v1.0 with 5,588 LOC Python** across the dbt data layer, 4 screens, config/CLI extension, and test suite. Tech stack: Python 3.11+, Textual ≥0.80, Pydantic v2, Click, PyYAML, Rich.
 
-**Developer workflow this enables:** Developer has dbt repo cloned locally (provides target/manifest.json, target/run_results.json), Airflow app repo cloned locally (provides DAG definitions), and a local Airflow demo stack running (provides live task status + pod names when on Kubernetes). Terminair correlates all three in one terminal view.
+**Architecture pattern established:** StateAggregator and MockDataProvider share identical async interfaces (`get_models()`, `get_previous_models()`). Screens call `_load_models()` which fetches both current and previous snapshots — previous snapshot enables all 6 regression signal types. The `--demo` flag selects MockDataProvider with pre-seeded grain drift for demo-visible signals.
 
-**Airflow task → dbt model mapping:** User passes `--dag` (one or more DAG IDs); terminair lists all tasks for those DAGs from the Airflow REST API and fuzzy-matches task IDs against manifest node names. Pod names come from task instance hostname field.
-
-**Fallback chain:** manifest.json missing → MockDataProvider; Airflow unreachable → status from run_results.json only; Snowflake missing → bytes_scanned=None silently.
-
-**Local testability target:** All 4 screens testable via `make dbt-demo` against MockDataProvider. No external services required for development.
+**Known tech debt at v1.0 close:** Cold-start error message has no `--demo` hint; REQUIREMENTS.md CLN-02/03 checkboxes were stale (fixed in archive). Human UAT deferred.
 
 ## Constraints
 
 - **Tech stack**: Python 3.11+, Textual ≥0.80, Pydantic v2, Click, PyYAML, Rich — no new major dependencies unless strictly necessary
-- **Read-only**: AirflowClient (being replaced by AirflowBridge) and new SnowflakeClient must have zero write methods — enforced by test_read_only.py
+- **Read-only**: AirflowBridge and SnowflakeClient must have zero write methods — enforced by test_read_only.py with inspect + AST scan
 - **Local artifacts only**: manifest.json and run_results.json consumed from local filesystem; no dbt Cloud API
 - **No prod data**: Local Airflow demo stack + fixture files are the only data sources during development
 - **Snowflake optional**: Entire snowflake config block is optional; absence must not crash anything
@@ -70,25 +72,16 @@ This is a brownfield project — an existing Textual TUI for Apache Airflow is b
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| dbt artifacts-first architecture | manifest.json is source of truth; Airflow and Snowflake are narrow enrichment sources | — Pending |
-| Remove Airflow screens entirely (not stub/archive) | Clean break — Airflow observability is k9s's job, not terminair's | — Pending |
-| AirflowBridge replaces AirflowClient | Narrow interface (GET only, status + pod_name) prevents scope creep back to full Airflow TUI | — Pending |
-| StateAggregator as single composition root | Screens never call data sources directly — testability and isolation | — Pending |
-| MockDataProvider as drop-in for StateAggregator | All 4 screens testable with no external services via --demo flag | — Pending |
-| DAG-name + task scan for Airflow→dbt mapping | User passes --dag IDs; terminair fetches tasks and fuzzy-matches to manifest nodes. No convention required, no dbt model meta changes needed | — Pending |
-| Horizontal layers build order | dbt data layer built and tested first, then screens wired incrementally — reduces risk of data shape surprises during UI work | — Pending |
-| Approach B: dbt layer first, screens grafted in | Data layer bugs caught before UI work; each milestone independently testable | — Pending |
+| dbt artifacts-first architecture | manifest.json is source of truth; Airflow and Snowflake are narrow enrichment sources | ✓ Good — screens are data-shape stable |
+| Remove Airflow screens entirely (not stub/archive) | Clean break — Airflow observability is k9s's job | ✓ Good — clean codebase from day 1 |
+| AirflowBridge replaces AirflowClient | Narrow interface (GET only, status + pod_name) prevents scope creep | ✓ Good — read-only enforced by test |
+| StateAggregator as single composition root | Screens never call data sources directly — testability | ✓ Good — mock swap trivial |
+| MockDataProvider as drop-in for StateAggregator | All 4 screens testable with no external services | ✓ Good — demo mode works |
+| Horizontal layers build order | dbt data layer first, then screens — reduces data shape risk | ✓ Good — phases 1-2 found and fixed all data shape issues before UI work |
+| Separate get_previous_models() method (not tuple return) | Zero churn to DbtScreen base class; screens opt in per override | ✓ Good — LineageScreen unaffected |
+| Timer in on_screen_resume (not on_mount) for clock | Avoid firing on suspended background screen | ⚠ Revisit — bug: clock never fired on initial mount; fixed by also calling _update_header() in on_mount |
 
 ## Evolution
-
-This document evolves at phase transitions and milestone boundaries.
-
-**After each phase transition** (via `/gsd-transition`):
-1. Requirements invalidated? → Move to Out of Scope with reason
-2. Requirements validated? → Move to Validated with phase reference
-3. New requirements emerged? → Add to Active
-4. Decisions to log? → Add to Key Decisions
-5. "What This Is" still accurate? → Update if drifted
 
 **After each milestone** (via `/gsd-complete-milestone`):
 1. Full review of all sections
@@ -97,4 +90,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-14 after initialization*
+*Last updated: 2026-05-16 after v1.0 milestone*
