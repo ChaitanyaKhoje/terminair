@@ -69,6 +69,9 @@ class TestStateAggregator:
         # fct_campaign_attribution is skipped (upstream_failed implied)
         skip_model = next((m for m in models if m.name == "fct_campaign_attribution"), None)
         assert skip_model is not None
+        assert skip_model.has_upstream_failure is True, (
+            "fct_campaign_attribution upstream is skipped → has_upstream_failure must be True"
+        )
 
     def test_bridge_none_pod_name_none(self, manifest, artifacts):
         from terminair.dbt.aggregator import StateAggregator
