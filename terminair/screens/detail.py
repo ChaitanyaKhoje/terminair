@@ -160,9 +160,9 @@ class ModelDetailScreen(DbtScreen):
         return model.compiled_sql or "-- compiled SQL unavailable --"
 
     def _render_regression(self, model: ModelState) -> str:
-        prev_model = next((m for m in self._previous_models if m.node_id == model.node_id), None)
-        previous = [prev_model] if prev_model is not None else None
-        signals = RegressionAnalyzer([model]).analyze(previous=previous)
+        previous = self._previous_models or None
+        all_signals = RegressionAnalyzer(self._models).analyze(previous=previous)
+        signals = [s for s in all_signals if s.node_id == model.node_id]
         if not signals:
             return "No regression signals for this model."
         lines = []
