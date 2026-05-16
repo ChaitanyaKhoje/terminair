@@ -95,13 +95,19 @@ class TestMockDataProvider:
         mdp.tick()
 
         models_after = asyncio.run(mdp.get_models())
-        after_durations = {m.name: m.duration_s for m in models_after if m.status == "running"}
+        # Index all models by name (regardless of status) so transitioning
+        # models are still checked — the old `if name in after_durations` guard
+        # silently skipped them when they moved out of "running".
+        after_by_name = {m.name: m for m in models_after}
 
         for name, initial_dur in initial_durations.items():
-            if name in after_durations:
-                assert after_durations[name] > (initial_dur or 0.0), (
-                    f"{name} duration should have increased after tick"
-                )
+            m_after = after_by_name[name]  # model must still exist in results
+            assert m_after.duration_s is not None, (
+                f"{name} duration_s is None after tick"
+            )
+            assert m_after.duration_s > (initial_dur or 0.0), (
+                f"{name} duration did not increase after tick"
+            )
 
     def test_tick_recomputes_row_delta_pct(self):
         """After 4 ticks, the transitioned model has status=success and row_delta_pct is not None."""
